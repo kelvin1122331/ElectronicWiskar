@@ -115,16 +115,10 @@ const MATAPELAJARAN = {
   ],
 };
 
-/* ---------- Galeri Kelas ---------- */
-const GALERI = [
-  { img: "images/g-kelas.jpg", judul: "Suasana Kelas Wiskar", kategori: "Kelas", desc: "Kehidupan belajar sehari-hari di kelas." },
-  { img: "images/g-diskusi.jpg", judul: "Diskusi Kelompok", kategori: "Kelas", desc: "Tugas dikerjakan kompak dalam kelompok." },
-  { img: "images/g-lab.jpg", judul: "Praktik Elektronika", kategori: "Praktikum", desc: "Menyolder dan merangkai komponen di lab." },
-  { img: "images/g-presentasi.jpg", judul: "Presentasi Proyek", kategori: "Kegiatan", desc: "Menyajikan hasil proyek di depan kelas." },
-  { img: "images/g-industri.jpg", judul: "Kunjungan Industri", kategori: "Kegiatan", desc: "Outing class mengenal dunia industri." },
-  { img: "images/g-acara.jpg", judul: "Acara & Peringatan Kelas", kategori: "Acara", desc: "Meriahkan kegiatan bersama sesama warga kelas." },
-];
-const GALERI_KATEGORI = ["Semua", "Kelas", "Praktikum", "Kegiatan", "Acara"];
+/* ---------- Galeri Kelas ----------
+   Konten galeri DINAMIS: dikelola lewat Panel Admin (/#admin)
+   dan disimpan di data/gallery.json. Kategori tersedia: */
+const GALERI_KATEGORI = ["Kelas", "Praktikum", "Kegiatan", "Acara"];
 
 /* ---------- Agenda ---------- */
 const AGENDA = [

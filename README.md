@@ -10,7 +10,8 @@ Website resmi **Kelas Wiskar** (Jurusan Teknik) — galeri kelas, menu mata pela
 |---|---|
 | 🏠 **Beranda** | Hero, statistik kelas, menu spesial, banner login, sneak peek galeri |
 | 📚 **Mata Pelajaran** | Tab **Kelas 10 / 11 / 12** — mapel, guru pengampu, badge Umum/Kompetensi, daftar materi pokok (terkunci sebelum login) |
-| 📸 **Galeri Kelas** | Filter kategori (Kelas, Praktikum, Kegiatan, Acara) + lightbox dengan navigasi keyboard |
+| 📸 **Galeri Kelas** | **Dinamis & kosong dari awal** — diisi lewat Panel Admin. Filter kategori (Kelas, Praktikum, Kegiatan, Acara) + lightbox dengan navigasi keyboard |
+| 🛡️ **Panel Admin** | Login admin → **upload** (klik/seret, maks 8 MB), **edit** judul/kategori/deskripsi, **hapus** foto (konfirmasi 2 langkah). Foto tersimpan di `public/images/uploads/` + `data/gallery.json` |
 | 🏫 **Profil Kelas** | Visi & misi, tabel data kelas, pengurus kelas (terkunci sebelum login) |
 | 🗓️ **Agenda** | Timeline jadwal dengan tag Ujian / Praktikum / Kegiatan / Penting |
 | 📮 **Kontak** | Kartu kontak wali kelas, email, WA + form pesan |
@@ -31,9 +32,16 @@ Port bisa diganti: `PORT=8080 node server.js`
 
 ## 🔐 Login
 
+### Login Siswa
 - **Sandi website:** `wiskarku01teknik`
 - Login mengecek **nomor absen + nama** terhadap `data/students.json`, lalu memverifikasi sandi.
 - Sesi login disimpan di cookie `HttpOnly` (berlaku 7 hari, in-memory di server).
+
+### Login Admin (Panel Admin)
+- Akses: ikon ⚙ di navbar / menu footer "Panel Admin" / langsung `/#admin`
+- **Username:** `admin` · **Password:** `wiskarku01teknik`
+- Ganti di `server.js` → `ADMIN_USER` / `ADMIN_PASSWORD` (atau env `ADMIN_USER` / `ADMIN_PASSWORD`)
+- Semua endpoint admin (`/api/gallery/upload`, `PUT`/`DELETE /api/gallery/:id`) memverifikasi cookie admin — tanpa login admin hasilnya 403.
 
 ### Akun demo (data contoh)
 
@@ -51,10 +59,12 @@ Port bisa diganti: `PORT=8080 node server.js`
 | Yang ingin diubah | File |
 |---|---|
 | Sandi website | `server.js` → `WEB_PASSWORD` (atau env `WEB_PASSWORD`) |
+| Akun admin | `server.js` → `ADMIN_USER` / `ADMIN_PASSWORD` (atau env) |
 | Daftar siswa | `data/students.json` |
 | Mata pelajaran, galeri, agenda, profil, kontak | `public/js/data.js` |
 | Warna tema | `public/css/style.css` → bagian `:root` dan `html[data-theme="dark"]` |
-| Foto | letakkan di `public/images/`, lalu ubah path di `public/js/data.js` |
+| Foto galeri | **upload lewat Panel Admin** (tersimpan otomatis di `public/images/uploads/` + `data/gallery.json`) |
+| Foto hero | `public/images/hero.jpg` (path di `public/index.html`) |
 
 ## 📂 Struktur
 
@@ -62,11 +72,15 @@ Port bisa diganti: `PORT=8080 node server.js`
 ├── server.js            # Server Node (API login + file statis), tanpa dependensi
 ├── package.json
 ├── data/
-│   └── students.json    # Daftar siswa (absen + nama)
+│   ├── students.json    # Daftar siswa (absen + nama)
+│   └── gallery.json     # Foto galeri (diisi otomatis oleh Panel Admin)
 └── public/
     ├── index.html       # Skeleton SPA
     ├── css/style.css    # Seluruh gaya + tema terang/gelap
-    ├── js/data.js       # Konten: mapel 10-12, galeri, agenda, profil, kontak
-    ├── js/app.js        # Routing, tema, login, galeri, lightbox
-    └── images/          # Foto hero & galeri
+    ├── js/data.js       # Konten: mapel 10-12, kategori galeri, agenda, profil, kontak
+    ├── js/app.js        # Routing, tema, login siswa & admin, panel admin, galeri, lightbox
+    └── images/
+        ├── hero.jpg     # Foto hero beranda
+        └── uploads/     # Foto hasil upload Panel Admin
 ```
+

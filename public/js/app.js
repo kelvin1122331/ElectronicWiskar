@@ -1,6 +1,7 @@
 /* ============================================================
    WiskarKu — app.js
-   SPA ringan: routing hash, tema, login, galeri + lightbox.
+   SPA ringan: routing hash, tema, login siswa, login admin,
+   panel admin galeri (upload/edit/hapus), galeri dinamis.
    ============================================================ */
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -8,11 +9,14 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const state = {
-  user: null,
+  user: null,      // siswa yang login
+  admin: null,     // admin yang login
+  gallery: [],     // isi galeri (dari /api/gallery)
   grade: 10,
   galeriFilter: "Semua",
   lightboxList: [],
   lightboxIdx: 0,
+  pendingImage: null, // { base64, mime, name, size } untuk upload admin
 };
 
 /* ============================================================
@@ -26,6 +30,24 @@ async function api(path, options = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Terjadi kesalahan.");
   return data;
+}
+
+async function loadGallery() {
+  try {
+    const d = await api("/api/gallery");
+    state.gallery = (d.items || []).sort((a, b) => b.createdAt - a.createdAt);
+  } catch {
+    state.gallery = [];
+  }
+}
+
+async function loadAdmin() {
+  try {
+    const d = await api("/api/admin/me");
+    state.admin = d.ok ? d.admin : null;
+  } catch {
+    state.admin = null;
+  }
 }
 
 /* ============================================================
@@ -114,6 +136,7 @@ const PAGES = {
   agenda: renderAgenda,
   kontak: renderKontak,
   login: renderLogin,
+  admin: renderAdmin,
 };
 
 function currentRoute() {
@@ -130,6 +153,7 @@ function route() {
   if (page === "mapel") bindMapel();
   if (page === "login") bindLogin();
   if (page === "kontak") bindKontak();
+  if (page === "admin") bindAdmin();
   initReveal();
 }
 
@@ -176,7 +200,8 @@ function lockOverlay(text = "Masuk untuk melihat") {
    Halaman: BERANDA
    ============================================================ */
 function renderBeranda() {
-  const featured = GALERI.slice(0, 3);
+  const featured = state.gallery.slice(0, 3);
+  const nMapel = Object.values(MATAPELAJARAN).reduce((n, l) => n + l.length, 0);
   return `
   <section class="hero">
     <div class="hero-bg"><img src="images/hero.jpg" alt="Suasana kelas Wiskar" /></div>
@@ -193,9 +218,9 @@ function renderBeranda() {
 
   <div class="container">
     <div class="stats">
-      <div class="stat-card" data-reveal><b>${KELAS_INFO.dataKelas[0][1].replace(" siswa", "")}</b><span>Total Siswa</span></div>
-      <div class="stat-card" data-reveal><b>18</b><span>Mata Pelajaran (10–12)</span></div>
-      <div class="stat-card" data-reveal><b>${GALERI.length}</b><span>Foto Galeri</span></div>
+      <div class="stat-card" data-reveal><b>${esc(KELAS_INFO.dataKelas[0][1].replace(" siswa", ""))}</b><span>Total Siswa</span></div>
+      <div class="stat-card" data-reveal><b>${nMapel}</b><span>Mata Pelajaran (10–12)</span></div>
+      <div class="stat-card" data-reveal><b>${state.gallery.length}</b><span>Foto Galeri</span></div>
       <div class="stat-card" data-reveal><b>${AGENDA.length}</b><span>Agenda Terdekat</span></div>
     </div>
   </div>
@@ -211,7 +236,7 @@ function renderBeranda() {
           ["🏫", "Profil Kelas", "Visi misi, data kelas, dan jajaran pengurus kelas.", "profil", "Kenali kelas"],
         ]
           .map(
-            ([icon, title, desc, slug, link], i) => `
+            ([icon, title, desc, slug, link]) => `
           <a class="card menu-card" href="#/${slug}" data-reveal>
             <span class="m-icon">${icon}</span>
             <h3>${title}</h3>
@@ -246,15 +271,18 @@ function renderBeranda() {
     </div>
   </section>
 
+  ${
+    featured.length
+      ? `
   <section class="section section-alt">
     <div class="container">
-      ${sectionHead("Glimpse", "Sampai jumpa di Galeri Kelas", "Sneak peek beberapa dokumentasi terbaru kelas Wiskar.")}
+      ${sectionHead("Glimpse", "Sampai jumpa di Galeri Kelas", "Sneak peek dokumentasi terbaru kelas Wiskar.")}
       <div class="feature-strip">
         ${featured
           .map(
             (g, i) => `
-          <a class="g-preview" href="#/galeri" data-reveal data-idx="${i}">
-            <img src="${g.img}" alt="${esc(g.judul)}" loading="lazy" />
+          <a href="#/galeri" data-reveal>
+            <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" />
             <span class="fs-cap">${esc(g.judul)}</span>
           </a>`
           )
@@ -264,7 +292,9 @@ function renderBeranda() {
         <a class="btn btn-primary" href="#/galeri">Lihat Semua Foto →</a>
       </div>
     </div>
-  </section>`;
+  </section>`
+      : ""
+  }`;
 }
 
 /* ============================================================
@@ -290,7 +320,7 @@ function renderMapel() {
       <div class="mapel-grid">
         ${list
           .map(
-            (m, i) => `
+            (m) => `
           <article class="card mapel-card" data-reveal>
             <div class="mapel-top">
               <span class="mapel-icon">${m.icon}</span>
@@ -330,16 +360,20 @@ function bindMapel() {
    Halaman: GALERI
    ============================================================ */
 function renderGaleri() {
-  const items = GALERI.filter((g) => state.galeriFilter === "Semua" || g.kategori === state.galeriFilter);
+  const items = state.gallery.filter((g) => state.galeriFilter === "Semua" || g.kategori === state.galeriFilter);
   return `
   <section class="section">
     <div class="container">
       ${sectionHead("Dokumentasi", "Galeri Kelas Wiskar", "Momen belajar, praktikum, dan kegiatan seru warga kelas. Klik foto untuk melihat lebih dekat.")}
-      <div class="chips">
-        ${GALERI_KATEGORI.map(
-          (k) => `<button class="chip ${k === state.galeriFilter ? "active" : ""}" type="button" data-cat="${esc(k)}">${esc(k)}</button>`
-        ).join("")}
-      </div>
+      ${
+        state.gallery.length
+          ? `<div class="chips">
+        ${["Semua", ...GALERI_KATEGORI]
+          .map((k) => `<button class="chip ${k === state.galeriFilter ? "active" : ""}" type="button" data-cat="${esc(k)}">${esc(k)}</button>`)
+          .join("")}
+      </div>`
+          : ""
+      }
       ${
         items.length
           ? `<div class="galeri-grid">
@@ -347,14 +381,24 @@ function renderGaleri() {
           .map(
             (g, i) => `
           <figure class="g-item" data-reveal data-idx="${i}" tabindex="0" role="button" aria-label="Buka foto ${esc(g.judul)}">
-            <img src="${g.img}" alt="${esc(g.judul)}" loading="lazy" />
+            <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" />
             <span class="g-tag">${esc(g.kategori)}</span>
-            <figcaption class="g-cap"><b>${esc(g.judul)}</b><span>${esc(g.desc)}</span></figcaption>
+            <figcaption class="g-cap"><b>${esc(g.judul)}</b><span>${esc(g.desc || "")}</span></figcaption>
           </figure>`
           )
           .join("")}
       </div>`
-          : `<div class="card" style="padding:3rem; text-align:center;" data-reveal><p style="color:var(--muted)">Belum ada foto pada kategori ini.</p></div>`
+          : `
+      <div class="empty-admin" data-reveal style="padding:3.4rem 1.6rem">
+        <span class="ea-ico">📷</span>
+        <b style="font-size:1.05rem; color:var(--text); display:block; margin-bottom:.3rem">Galeri masih kosong</b>
+        ${
+          state.admin
+            ? "Kamu sedang login sebagai admin — tambahkan foto pertama dari Panel Admin!"
+            : "Foto akan segera ditambahkan oleh admin kelas. Nanti mampir lagi, ya!"
+        }
+        ${state.admin ? `<div style="margin-top:1.1rem"><a class="btn btn-primary" href="#/admin">➕ Tambah Foto Sekarang</a></div>` : ""}
+      </div>`
       }
     </div>
   </section>`;
@@ -367,7 +411,7 @@ function bindGaleri() {
       route();
     })
   );
-  state.lightboxList = GALERI.filter((g) => state.galeriFilter === "Semua" || g.kategori === state.galeriFilter);
+  state.lightboxList = state.gallery.filter((g) => state.galeriFilter === "Semua" || g.kategori === state.galeriFilter);
   $$(".g-item").forEach((el) => {
     const idx = Number(el.dataset.idx);
     const open = () => openLightbox(idx);
@@ -380,9 +424,9 @@ function openLightbox(idx) {
   state.lightboxIdx = idx;
   const g = state.lightboxList[idx];
   if (!g) return;
-  $("#lightboxImg").src = g.img;
+  $("#lightboxImg").src = g.file;
   $("#lightboxImg").alt = g.judul;
-  $("#lightboxCap").textContent = `${g.judul} — ${g.desc}`;
+  $("#lightboxCap").textContent = `${g.judul}${g.desc ? " — " + g.desc : ""}`;
   $("#lightbox").classList.add("open");
   $("#lightbox").setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -547,7 +591,7 @@ function bindKontak() {
 }
 
 /* ============================================================
-   Halaman: LOGIN
+   Halaman: LOGIN (siswa)
    ============================================================ */
 function renderLogin() {
   if (state.user) {
@@ -653,6 +697,352 @@ function bindLogin() {
 }
 
 /* ============================================================
+   Halaman: ADMIN (login + panel galeri)
+   ============================================================ */
+function renderAdmin() {
+  if (!state.admin) return renderAdminLogin();
+  return renderAdminPanel();
+}
+
+function renderAdminLogin() {
+  return `
+  <section class="section">
+    <div class="container" style="max-width:480px">
+      <div class="card login-card" data-reveal>
+        <div class="l-head">
+          <div style="width:56px;height:56px;border-radius:18px;margin:0 auto .9rem;display:grid;place-items:center;font-size:1.6rem;background:var(--primary-soft)">🛡️</div>
+          <h2>Panel Admin</h2>
+          <p>Khusus pengelola website. Masuk dengan akun admin.</p>
+        </div>
+        <form id="adminLoginForm" novalidate>
+          <div class="field">
+            <label for="admUser">Username Admin</label>
+            <input id="admUser" name="username" type="text" placeholder="admin" required autocomplete="username" />
+          </div>
+          <div class="field">
+            <label for="admPass">Password Admin</label>
+            <div class="pwd-row">
+              <input id="admPass" name="password" type="password" placeholder="Password" required autocomplete="current-password" />
+              <button type="button" class="pwd-toggle" id="admPwdToggle" aria-label="Tampilkan password">LIHAT</button>
+            </div>
+          </div>
+          <div class="alert alert-bad" id="adminAlert" role="alert"></div>
+          <button class="btn btn-primary" type="submit" id="admSubmit" style="width:100%">🔓 Masuk Panel</button>
+        </form>
+        <p class="login-note">Bukan admin? <a href="#/beranda" style="color:var(--primary-strong); font-weight:700;">Kembali ke beranda</a></p>
+      </div>
+    </div>
+  </section>`;
+}
+
+function adminPhotoCard(g) {
+  return `
+  <div class="card admin-photo" data-reveal data-id="${esc(g.id)}">
+    <div class="ap-img">
+      <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" />
+      <span class="ap-cat">${esc(g.kategori)}</span>
+    </div>
+    <div class="ap-body">
+      <b class="ap-title">${esc(g.judul)}</b>
+      <p class="ap-desc">${esc(g.desc || "—")}</p>
+      <div class="ap-actions">
+        <button class="btn btn-ghost btn-sm ap-edit" type="button">✏️ Edit</button>
+        <button class="btn btn-danger-ghost btn-sm ap-del" type="button" data-label="🗑️ Hapus">🗑️ Hapus</button>
+      </div>
+      <div class="ap-edit-form" hidden>
+        <input class="ef-judul" type="text" value="${esc(g.judul)}" maxlength="80" placeholder="Judul foto" />
+        <select class="ef-kategori">
+          ${GALERI_KATEGORI.map((k) => `<option value="${esc(k)}" ${g.kategori === k ? "selected" : ""}>${esc(k)}</option>`).join("")}
+        </select>
+        <input class="ef-desc" type="text" value="${esc(g.desc || "")}" maxlength="200" placeholder="Deskripsi (opsional)" />
+        <div style="display:flex; gap:.5rem">
+          <button class="btn btn-primary btn-sm ef-save" type="button">Simpan</button>
+          <button class="btn btn-ghost btn-sm ef-cancel" type="button">Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAdminPanel() {
+  const photos = state.gallery;
+  return `
+  <section class="section">
+    <div class="container">
+      ${sectionHead("Panel Admin", "Kelola Galeri Kelas", `Halo, <b>${esc(state.admin.username)}</b> 👋 — tambah, ubah, atau hapus foto yang tampil di Galeri Kelas.`)}
+      <div class="admin-topbar" data-reveal>
+        <a class="btn btn-ghost btn-sm" href="#/galeri">👁️ Lihat Galeri</a>
+        <button class="btn btn-danger-ghost btn-sm" id="adminLogout" type="button">Keluar Admin</button>
+      </div>
+      <div class="admin-grid">
+        <div class="card panel" data-reveal>
+          <h3>📤 Tambah Foto</h3>
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Pilih file foto">
+            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+            <div class="dz-empty" id="dzEmpty">
+              <span class="dz-ico">📷</span>
+              <b>Klik</b> atau seret foto ke sini
+              <div><span>JPG, PNG, WEBP, GIF — maksimal 8 MB</span></div>
+            </div>
+            <div class="dz-preview" id="dzPreview" hidden>
+              <img id="dzImg" src="" alt="Pratinjau foto" />
+              <div>
+                <b id="dzName"></b>
+                <span class="dz-meta" id="dzSize"></span>
+                <div><button type="button" class="dz-clear" id="dzClear">✕ Ganti foto</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="upJudul">Judul Foto</label>
+            <input id="upJudul" type="text" placeholder="mis. Praktikum Rangkaian Listrik" maxlength="80" />
+          </div>
+          <div class="field">
+            <label for="upKategori">Kategori</label>
+            <select id="upKategori">
+              ${GALERI_KATEGORI.map((k) => `<option value="${esc(k)}">${esc(k)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label for="upDesc">Deskripsi <span style="color:var(--muted); font-weight:500">(opsional)</span></label>
+            <input id="upDesc" type="text" placeholder="Sedikit cerita di balik foto" maxlength="200" />
+          </div>
+          <button class="btn btn-primary" id="upSubmit" type="submit" style="width:100%">⬆️ Upload ke Galeri</button>
+        </div>
+
+        <div data-reveal style="transition-delay:100ms">
+          <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.9rem">
+            <h3 style="font-size:1.1rem">🖼️ Foto di Galeri <span class="count-badge">${photos.length}</span></h3>
+          </div>
+          ${
+            photos.length
+              ? `<div class="admin-photo-grid">${photos.map(adminPhotoCard).join("")}</div>`
+              : `<div class="empty-admin"><span class="ea-ico">🗂️</span>Belum ada foto di galeri.<br>Upload foto pertama lewat panel di samping!</div>`
+          }
+        </div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function bindAdmin() {
+  if (!state.admin) return bindAdminLogin();
+  bindAdminPanel();
+}
+
+function bindAdminLogin() {
+  const form = $("#adminLoginForm");
+  if (!form) return;
+  $("#admPwdToggle").addEventListener("click", () => {
+    const inp = $("#admPass");
+    const show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    $("#admPwdToggle").textContent = show ? "SEMBUNYIKAN" : "LIHAT";
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = $("#admUser").value.trim();
+    const password = $("#admPass").value.trim();
+    const alertEl = $("#adminAlert");
+    const btn = $("#admSubmit");
+    alertEl.classList.remove("show");
+    if (!username || !password) {
+      alertEl.textContent = "Isi username dan password admin.";
+      alertEl.classList.add("show");
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Memeriksa...";
+    try {
+      const data = await api("/api/admin/login", { method: "POST", body: JSON.stringify({ username, password }) });
+      state.admin = data.admin;
+      toast(`Masuk sebagai admin ✓`);
+      route();
+    } catch (err) {
+      alertEl.textContent = err.message;
+      alertEl.classList.add("show");
+      btn.disabled = false;
+      btn.textContent = "🔓 Masuk Panel";
+    }
+  });
+}
+
+function bindAdminPanel() {
+  // ---- logout admin ----
+  const logoutBtn = $("#adminLogout");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await api("/api/admin/logout", { method: "POST" });
+      } catch { /* abaikan */ }
+      state.admin = null;
+      toast("Kamu keluar dari mode admin.");
+      route();
+    });
+  }
+
+  // ---- pilih / seret file ----
+  const dz = $("#dropzone");
+  const fileInput = $("#fileInput");
+  if (!dz || !fileInput) return;
+
+  const showPreview = (img) => {
+    state.pendingImage = img;
+    $("#dzEmpty").hidden = true;
+    $("#dzPreview").hidden = false;
+    $("#dzImg").src = img.dataUrl;
+    $("#dzName").textContent = img.name;
+    $("#dzSize").textContent = `${(img.size / 1024 / 1024).toFixed(2)} MB`;
+  };
+  const clearPreview = () => {
+    state.pendingImage = null;
+    fileInput.value = "";
+    $("#dzPreview").hidden = true;
+    $("#dzEmpty").hidden = false;
+  };
+
+  const handleFile = (file) => {
+    if (!file) return;
+    if (!UPLOAD_MIME[file.type]) {
+      toast("Format tidak didukung. Gunakan JPG, PNG, WEBP, atau GIF.", "err");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast("Foto terlalu besar. Maksimal 8 MB.", "err");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      showPreview({
+        dataUrl,
+        base64: dataUrl.split(",")[1],
+        mime: file.type,
+        name: file.name,
+        size: file.size,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  dz.addEventListener("click", (e) => {
+    if (e.target.closest("#dzClear")) return;
+    fileInput.click();
+  });
+  dz.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && fileInput.click());
+  fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
+  ["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag"); }));
+  dz.addEventListener("drop", (e) => handleFile(e.dataTransfer?.files?.[0]));
+  const dzClear = $("#dzClear");
+  if (dzClear) dzClear.addEventListener("click", (e) => { e.stopPropagation(); clearPreview(); });
+
+  // ---- upload ----
+  const upSubmit = $("#upSubmit");
+  if (upSubmit) {
+    upSubmit.addEventListener("click", async () => {
+      if (!state.pendingImage) return toast("Pilih foto dulu, ya.", "err");
+      const judul = $("#upJudul").value.trim();
+      const kategori = $("#upKategori").value;
+      const desc = $("#upDesc").value.trim();
+      upSubmit.disabled = true;
+      upSubmit.textContent = "Mengupload...";
+      try {
+        const data = await api("/api/gallery/upload", {
+          method: "POST",
+          body: JSON.stringify({ judul, kategori, desc, base64: state.pendingImage.base64, mime: state.pendingImage.mime }),
+        });
+        toast(`Foto "${data.item.judul}" berhasil diupload! 🎉`);
+        await loadGallery();
+        route();
+      } catch (err) {
+        toast(err.message, "err");
+        upSubmit.disabled = false;
+        upSubmit.textContent = "⬆️ Upload ke Galeri";
+      }
+    });
+  }
+
+  // ---- edit & hapus per kartu ----
+  $$(".admin-photo").forEach((card) => {
+    const id = card.dataset.id;
+    const item = state.gallery.find((g) => g.id === id);
+    if (!item) return;
+
+    // edit
+    const editBtn = $(".ap-edit", card);
+    const form = $(".ap-edit-form", card);
+    editBtn.addEventListener("click", () => {
+      form.hidden = false;
+      editBtn.hidden = true;
+      $(".ef-judul", card).focus();
+    });
+    $(".ef-cancel", card).addEventListener("click", () => {
+      form.hidden = true;
+      editBtn.hidden = false;
+    });
+    $(".ef-save", card).addEventListener("click", async () => {
+      const btn = $(".ef-save", card);
+      btn.disabled = true;
+      btn.textContent = "Menyimpan...";
+      try {
+        await api(`/api/gallery/${id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            judul: $(".ef-judul", card).value,
+            kategori: $(".ef-kategori", card).value,
+            desc: $(".ef-desc", card).value,
+          }),
+        });
+        toast("Perubahan disimpan ✓");
+        await loadGallery();
+        route();
+      } catch (err) {
+        toast(err.message, "err");
+        btn.disabled = false;
+        btn.textContent = "Simpan";
+      }
+    });
+
+    // hapus (konfirmasi 2 langkah)
+    const delBtn = $(".ap-del", card);
+    let armed = null;
+    delBtn.addEventListener("click", async () => {
+      if (!delBtn.classList.contains("armed")) {
+        delBtn.classList.add("armed");
+        delBtn.textContent = "⚠️ Yakin? Klik lagi";
+        armed = setTimeout(() => {
+          delBtn.classList.remove("armed");
+          delBtn.textContent = delBtn.dataset.label;
+        }, 3000);
+        return;
+      }
+      clearTimeout(armed);
+      delBtn.disabled = true;
+      delBtn.textContent = "Menghapus...";
+      try {
+        await api(`/api/gallery/${id}`, { method: "DELETE" });
+        toast(`Foto "${item.judul}" dihapus.`);
+        await loadGallery();
+        route();
+      } catch (err) {
+        toast(err.message, "err");
+        delBtn.disabled = false;
+        delBtn.classList.remove("armed");
+        delBtn.textContent = delBtn.dataset.label;
+      }
+    });
+  });
+}
+
+const UPLOAD_MIME = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+/* ============================================================
    Init
    ============================================================ */
 async function init() {
@@ -660,6 +1050,7 @@ async function init() {
   initNav();
   initLightbox();
   renderUserBox();
+  await Promise.all([loadGallery(), loadAdmin()]);
   route();
   try {
     const data = await api("/api/me");

@@ -547,3 +547,67 @@ html[data-theme="dark"] .footer-col a:hover { color: var(--primary); }
   .agenda-date { width: 100%; display: flex; align-items: baseline; justify-content: center; gap: 0.5rem; }
   .user-btn .u-name { display: none; }
 }
+
+/* ============================================================
+   Panel Admin
+   ============================================================ */
+.admin-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 1.2rem; align-items: start; }
+.admin-topbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.4rem; }
+
+.dropzone {
+  border: 2px dashed var(--border); border-radius: var(--radius); padding: 1.7rem 1.2rem;
+  text-align: center; cursor: pointer; color: var(--muted); transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 1rem; outline: none;
+}
+.dropzone:hover, .dropzone.drag, .dropzone:focus-visible { border-color: var(--primary); background: var(--surface-2); }
+.dz-empty .dz-ico { font-size: 1.9rem; display: block; margin-bottom: 0.4rem; }
+.dz-empty b { color: var(--text); }
+.dz-empty span { font-size: 0.78rem; color: var(--muted); }
+.dz-preview { display: flex; gap: 0.9rem; align-items: center; text-align: left; }
+.dz-preview img { width: 88px; height: 66px; object-fit: cover; border-radius: 10px; box-shadow: var(--shadow); }
+.dz-preview b { display: block; font-size: 0.88rem; word-break: break-all; }
+.dz-preview .dz-meta { font-size: 0.76rem; color: var(--muted); }
+.dz-clear { margin-top: 0.35rem; font-size: 0.75rem; font-weight: 800; color: var(--bad); padding: 0.2rem 0.5rem; border-radius: 8px; }
+.dz-clear:hover { background: color-mix(in srgb, var(--bad) 12%, transparent); }
+
+.count-badge {
+  display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary-strong); font-size: 0.8rem; margin-left: 0.3rem;
+}
+html[data-theme="dark"] .count-badge { color: var(--primary); }
+
+.admin-photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.admin-photo { overflow: hidden; display: flex; flex-direction: column; }
+.ap-img { position: relative; aspect-ratio: 16 / 10; background: var(--surface-2); }
+.ap-img img { width: 100%; height: 100%; object-fit: cover; }
+.ap-cat {
+  position: absolute; top: 0.6rem; left: 0.6rem; padding: 0.22rem 0.65rem; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(6px); color: #fff; font-size: 0.7rem; font-weight: 700;
+}
+.ap-body { padding: 0.85rem 1rem 1rem; display: flex; flex-direction: column; flex: 1; }
+.ap-title { font-size: 0.94rem; }
+.ap-desc { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; flex: 1; }
+.ap-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.btn-danger-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--bad); }
+.btn-danger-ghost:hover { border-color: var(--bad); background: #fbe9e9; }
+html[data-theme="dark"] .btn-danger-ghost:hover { background: #241010; }
+.btn-danger-ghost.armed { background: var(--bad); border-color: var(--bad); color: #fff; animation: pulse 0.9s ease infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+.ap-edit-form { margin-top: 0.8rem; display: flex; flex-direction: column; gap: 0.55rem; border-top: 1px dashed var(--border); padding-top: 0.85rem; }
+.ap-edit-form input, .ap-edit-form select {
+  width: 100%; padding: 0.55rem 0.8rem; border-radius: 10px; border: 1.5px solid var(--border);
+  background: var(--surface-2); color: var(--text); outline: none; font-size: 0.88rem;
+}
+.ap-edit-form input:focus, .ap-edit-form select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+.empty-admin {
+  border: 2px dashed var(--border); border-radius: var(--radius); padding: 2.6rem 1.4rem;
+  text-align: center; color: var(--muted); font-size: 0.9rem;
+}
+.empty-admin .ea-ico { font-size: 2.2rem; display: block; margin-bottom: 0.5rem; }
+
+@media (max-width: 1000px) {
+  .admin-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .admin-photo-grid { grid-template-columns: 1fr; }
+}
