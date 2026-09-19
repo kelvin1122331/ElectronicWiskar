@@ -1,0 +1,13 @@
+{
+  "name": "wiskarku-galeri-kelas",
+  "version": "1.0.0",
+  "description": "Website Galeri Kelas Wiskar — menu mata pelajaran (kelas 10-12), galeri kelas, profil, agenda, dan sistem login (nomor absen + nama + sandi).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT"
+}
