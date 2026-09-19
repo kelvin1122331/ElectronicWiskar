@@ -132,6 +132,30 @@ const AGENDA = [
   { date: "2026-11-18", tanggal: "18", bulan: "Nov", hari: "Senin", judul: "Ujian Praktik Kompetensi", tag: "penting", tagLabel: "Penting", desc: "Ujian praktik akhir: merangkai dan menguji rangkaian kendali." },
 ];
 
+/* ---------- Jadwal Piket Kelas ----------
+   Edit sesuai pembagian kelompok di kelas. */
+const PIKET = [
+  { hari: "Senin", grup: "Kelompok 1 · Absen 01–06", tugas: "Bersih papan tulis, sapu & mop area depan" },
+  { hari: "Selasa", grup: "Kelompok 2 · Absen 07–12", tugas: "Sapu & mop lantai, buang sampah kelas" },
+  { hari: "Rabu", grup: "Kelompok 3 · Absen 13–18", tugas: "Bersih jendela, lap meja & kursi guru" },
+  { hari: "Kamis", grup: "Kelompok 4 · Absen 19–24", tugas: "Sapu & mop lantai, rapikan kursi siswa" },
+  { hari: "Jumat", grup: "Kelompok 5 · Absen 25–30", tugas: "Jumat bersih: sapu, mop, dan jemur kelas" },
+];
+const PIKET_JAM = "07.15 – 07.45";
+
+/* ---------- Kuis Harian ----------
+   Tambah soal sesukamu: q = pertanyaan, options = 4 pilihan, a = indeks jawaban benar. */
+const KUIS = [
+  { mapel: "Fisika", q: "Apa satuan hambatan listrik?", options: ["Volt", "Ampere", "Ohm", "Watt"], a: 2 },
+  { mapel: "Fisika", q: "Bunyi Hukum Ohm yang benar adalah...", options: ["V = I × R", "V = R / I", "I = V × R", "R = V × I"], a: 0 },
+  { mapel: "Elektronika", q: "Komponen yang hanya mengizinkan arus mengalir satu arah adalah...", options: ["Resistor", "Induktor", "Dioda", "Kapasitor"], a: 2 },
+  { mapel: "Elektronika", q: "Simbol kapasitor pada rangkaian elektronik adalah huruf...", options: ["R", "C", "L", "D"], a: 1 },
+  { mapel: "Fisika", q: "Satuan daya listrik dalam SI adalah...", options: ["Joule", "Watt", "Newton", "Pascal"], a: 1 },
+  { mapel: "Elektronika", q: "Fungsi resistor dalam suatu rangkaian adalah...", options: ["Meningkatkan tegangan", "Menyimpan energi", "Membatasi arus", "Memutus arus"], a: 2 },
+  { mapel: "Fisika", q: "Rangkaian tiga resistor yang disusun seri memiliki total hambatan...", options: ["Terkecil dari ketiganya", "Terbesar dari ketiganya", "Jumlah ketiganya", "Selisih ketiganya"], a: 2 },
+  { mapel: "Elektronika", q: "Alat ukur untuk mengukur tegangan pada suatu titik rangkaian adalah...", options: ["Ammeter", "Ohmmeter", "Multimeter (mode volt)", "Tang ampere"], a: 2 },
+];
+
 /* ---------- Tautan Penting ----------
    Ganti URL sesuai sekolahmu. Icon = emoji. */
 const TAUTAN = [

@@ -15,12 +15,17 @@ const state = {
   adminTab: "galeri",
   gallery: [],
   announcements: [],
+  students: [],
   grade: 10,
   galeriFilter: "Semua",
   lightboxList: [],
   lightboxIdx: 0,
   pendingImage: null,
+  kuis: null,
+  anggotaQ: "",
 };
+
+const newKuis = () => ({ i: 0, score: 0, picked: null, done: false });
 
 const PAGE_TITLES = {
   beranda: "Beranda",
@@ -28,6 +33,9 @@ const PAGE_TITLES = {
   galeri: "Galeri Kelas",
   profil: "Profil Kelas",
   agenda: "Agenda Kelas",
+  kuis: "Kuis Harian",
+  piket: "Jadwal Piket",
+  anggota: "Anggota Kelas",
   kontak: "Kontak",
   login: "Masuk",
   admin: "Panel Admin",
@@ -60,6 +68,12 @@ async function loadAdmin() {
     const d = await api("/api/admin/me");
     state.admin = d.ok ? d.admin : null;
   } catch { state.admin = null; }
+}
+async function loadStudents() {
+  try {
+    const d = await api("/api/students");
+    state.students = d.items || [];
+  } catch { state.students = []; }
 }
 
 /* ============================================================
@@ -235,6 +249,9 @@ const PAGES = {
   galeri: renderGaleri,
   profil: renderProfil,
   agenda: renderAgenda,
+  kuis: renderKuis,
+  piket: renderPiket,
+  anggota: renderAnggota,
   kontak: renderKontak,
   login: renderLogin,
   admin: renderAdmin,
@@ -259,7 +276,11 @@ function route() {
   if (page === "login") bindLogin();
   if (page === "kontak") bindKontak();
   if (page === "admin") bindAdmin();
+  if (page === "beranda") bindBeranda();
+  if (page === "kuis") bindKuis();
+  if (page === "anggota") bindAnggota();
   updateShare();
+  initBlurIn();
   initReveal();
 }
 
@@ -349,7 +370,7 @@ function renderBeranda() {
     ? `
   <section class="section" style="padding-top:2.4rem; padding-bottom:0.6rem">
     <div class="container">
-      <div class="cd-card" id="cdCard" data-reveal>
+      <div class="cd-card aurora" id="cdCard" data-reveal>
         <div class="cd-info">
           <div class="cd-label">⏱️ Agenda Terdekat</div>
           <h3>${esc(next.judul)}</h3>
@@ -369,21 +390,24 @@ function renderBeranda() {
 
   return `
   <section class="hero">
-    <div class="hero-bg"><img src="images/hero.jpg" alt="Suasana kelas Wiskar" /></div>
+    <div class="hero-bg"><img src="images/hero.jpg" alt="Suasana kelas Wiskar" data-blur /></div>
     <div class="hero-blob b1" aria-hidden="true"></div>
     <div class="hero-blob b2" aria-hidden="true"></div>
     <div class="container hero-inner">
       <div style="display:flex; gap:.6rem; flex-wrap:wrap">
         <span class="hero-pill">⚡ Kelas Wiskar · ${esc(KELAS_INFO.jurusan)}</span>
         <span class="hero-pill"><span class="live-dot"></span><span id="clockText">memuat…</span></span>
+        <span class="hero-pill" id="weatherChip">🌡️ Jepara · memuat…</span>
       </div>
       <h1>Selamat datang di <span class="grad">Galeri Kelas Wiskar</span></h1>
       <p>Website resmi warga kelas — dokumentasi kegiatan, mata pelajaran kelas 10–12, pengumuman, agenda, dan segala hal seru seputar kelas kita.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="#/galeri">📸 Lihat Galeri</a>
         <a class="btn btn-ghost" href="#/mapel">📚 Mata Pelajaran</a>
+        <a class="btn btn-ghost" href="#/kuis">🧠 Main Kuis</a>
       </div>
     </div>
+    <svg class="hero-wave" viewBox="0 0 1440 72" preserveAspectRatio="none" aria-hidden="true"><path d="M0,48 C240,80 480,8 720,32 C960,56 1200,72 1440,34 L1440,72 L0,72 Z"/></svg>
   </section>
 
   <div class="container">
@@ -406,6 +430,10 @@ function renderBeranda() {
           ["📸", "Galeri Kelas", "Dokumentasi kegiatan, praktikum, dan momen seru warga kelas.", "galeri", "Buka galeri"],
           ["🗓️", "Agenda Kelas", "Jadwal ulangan, praktikum, dan acara penting kelas.", "agenda", "Lihat agenda"],
           ["🏫", "Profil Kelas", "Visi misi, data kelas, dan jajaran pengurus kelas.", "profil", "Kenali kelas"],
+          ["🧠", "Kuis Harian", "Uji wawasanmu dengan 8 soal elektronika. Skor terbaikmu tersimpan!", "kuis", "Main sekarang"],
+          ["🧹", "Jadwal Piket", "Pembagian piket harian & kelompoknya. Cek giliran kelompokmu!", "piket", "Lihat piket"],
+          ["👥", "Anggota Kelas", "Daftar lengkap 30 warga kelas Wiskar. Masuk dulu untuk melihat.", "anggota", "Kenal warga"],
+          ["📮", "Kontak", "Wali kelas, email, grup WA, dan form pesan untuk kelas.", "kontak", "Hubungi kami"],
         ]
           .map(
             ([icon, title, desc, slug, link]) => `
@@ -422,7 +450,7 @@ function renderBeranda() {
       ${
         state.user
           ? `
-      <div class="login-banner" data-reveal>
+      <div class="login-banner aurora" data-reveal>
         <span class="lb-emoji">👋</span>
         <div style="flex:1; min-width: 240px;">
           <h3>Halo, ${esc(state.user.nama)}!</h3>
@@ -431,7 +459,7 @@ function renderBeranda() {
         <a class="btn" href="#/profil">Lihat Profil Kelas</a>
       </div>`
           : `
-      <div class="login-banner" data-reveal>
+      <div class="login-banner aurora" data-reveal>
         <span class="lb-emoji">🔐</span>
         <div style="flex:1; min-width: 240px;">
           <h3>Sedang mencari sesuatu di kelas kita?</h3>
@@ -440,6 +468,60 @@ function renderBeranda() {
         <a class="btn" href="#/login">Masuk Sekarang</a>
       </div>`
       }
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0.5rem">
+    <div class="container">
+      <div class="widget-row">
+        <div class="card widget-card aurora" data-reveal>
+          <h3>🧹 Piket Hari Ini</h3>
+          <div class="widget-body">
+            ${(() => {
+              const d = new Date().getDay();
+              const p = d >= 1 && d <= 5 ? PIKET[d - 1] : null;
+              return p
+                ? `<div class="wb-main">${esc(p.grup)}</div>
+                   <div class="wb-sub">${esc(p.hari)} · ${esc(p.tugas)}</div>
+                   <div class="widget-foot">🕖 Jam piket: <b>${esc(PIKET_JAM)}</b> · Diawasi ketua kelas</div>`
+                : `<div class="wb-main">Weekend — bebas piket 🎉</div>
+                   <div class="wb-sub">Manfaatkan untuk istirahat dan belajar mandiri.</div>
+                   <div class="widget-foot">📅 Piket berikutnya: <b>${esc(PIKET[0].grup)}</b> hari Senin</div>`;
+            })()}
+          </div>
+        </div>
+        <div class="card widget-card" data-reveal style="transition-delay:90ms">
+          <h3>🎂 Ultah Bulan Ini</h3>
+          <div class="widget-body">
+            ${(() => {
+              const now = new Date();
+              const mm = String(now.getMonth() + 1).padStart(2, "0");
+              const monthKids = state.students.filter((s) => (s.birthday || "").startsWith(mm + "-"));
+              const nextB = nextBirthday();
+              const todayMMDD = mm + "-" + String(now.getDate()).padStart(2, "0");
+              return monthKids.length
+                ? `<div class="bday-list">
+                    ${monthKids
+                      .slice(0, 3)
+                      .map(
+                        (s) => `
+                    <div class="bday-item ${s.birthday === todayMMDD ? "bday-today" : ""}">
+                      <span class="bday-date">${esc(s.birthday.split("-")[1])}</span>
+                      <div><b>${esc(s.nama)}</b><span>Absen ${esc(s.absen)}${s.birthday === todayMMDD ? " · 🎉 HARI INI!" : ""}</span></div>
+                    </div>`
+                      )
+                      .join("")}
+                  </div>
+                  ${
+                    nextB
+                      ? `<div class="widget-foot">📅 Ultah berikutnya: <b>${esc(nextB.nama)}</b> · ${nextB.days === 0 ? "hari ini 🎉" : nextB.days + " hari lagi"}</div>`
+                      : ""
+                  }`
+                : `<div class="wb-sub">Tidak ada ultah bulan ini. Bulan depan insyaallah ada! ✨</div>`;
+            })()}
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -479,7 +561,7 @@ function renderBeranda() {
           .map(
             (g, i) => `
           <a href="#/galeri" data-reveal style="transition-delay:${i * 70}ms">
-            <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" />
+            <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" data-blur />
             <span class="fs-cap">${esc(g.judul)}</span>
           </a>`
           )
@@ -594,7 +676,7 @@ function renderGaleri() {
           .map(
             (g, i) => `
           <figure class="g-item" data-reveal data-idx="${i}" tabindex="0" role="button" aria-label="Buka foto ${esc(g.judul)}">
-            <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" />
+            <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" data-blur />
             <span class="g-tag">${esc(g.kategori)}</span>
             <figcaption class="g-cap"><b>${esc(g.judul)}</b><span>${esc(g.desc || "")}</span></figcaption>
           </figure>`
@@ -952,7 +1034,7 @@ function adminPhotoCard(g) {
   return `
   <div class="card admin-photo" data-reveal data-id="${esc(g.id)}">
     <div class="ap-img">
-      <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" />
+      <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" data-blur />
       <span class="ap-cat">${esc(g.kategori)}</span>
     </div>
     <div class="ap-body">
@@ -1322,6 +1404,7 @@ function bindAnnAdmin() {
         const data = await api("/api/announcements", { method: "POST", body: JSON.stringify({ judul, isi, prioritas }) });
         toast(`Pengumuman "${data.item.judul}" terbit! 📣`);
         await loadAnnouncements();
+        buildTicker();
         route();
       } catch (err) {
         toast(err.message, "err");
@@ -1354,6 +1437,7 @@ function bindAnnAdmin() {
         await api(`/api/announcements/${id}`, { method: "DELETE" });
         toast(`Pengumuman "${item?.judul || ""}" dihapus.`);
         await loadAnnouncements();
+        buildTicker();
         route();
       } catch (err) {
         toast(err.message, "err");
@@ -1386,6 +1470,9 @@ function buildPaletteIndex() {
     ["📸", "Galeri Kelas", "Dokumentasi kegiatan", "#/galeri", "Halaman"],
     ["🏫", "Profil Kelas", "Visi misi & pengurus", "#/profil", "Halaman"],
     ["🗓️", "Agenda Kelas", "Jadwal & countdown", "#/agenda", "Halaman"],
+    ["🧠", "Kuis Harian", "8 soal Fisika & Elektronika", "#/kuis", "Halaman"],
+    ["🧹", "Jadwal Piket", "Pembagian piket harian", "#/piket", "Halaman"],
+    ["👥", "Anggota Kelas", "Daftar 30 siswa", "#/anggota", "Halaman"],
     ["📮", "Kontak", "Wali kelas & form pesan", "#/kontak", "Halaman"],
     ["🔐", "Masuk / Login", "Login siswa", "#/login", "Halaman"],
     ["🛡️", "Panel Admin", "Kelola galeri & pengumuman", "#/admin", "Halaman"],
@@ -1500,6 +1587,311 @@ function initPalette() {
 }
 
 /* ============================================================
+   v3 — Ticker, cuaca, blur-in, ultah
+   ============================================================ */
+function buildTicker() {
+  const t = $("#ticker");
+  const track = $("#tickerTrack");
+  if (!t || !track) return;
+  if (!state.announcements.length) {
+    t.style.display = "none";
+    return;
+  }
+  t.style.display = "flex";
+  const items = state.announcements
+    .map((a) => `<span class="ticker-item">${a.prioritas === "penting" ? "📌" : "📣"} <b>${esc(a.judul)}</b></span>`)
+    .join("");
+  track.innerHTML = `<span class="ticker-group">${items}</span><span class="ticker-group" aria-hidden="true">${items}</span>`;
+}
+
+const WMO = {
+  0: ["☀️", "Cerah"], 1: ["🌤️", "Cerah berawan"], 2: ["⛅", "Berawan"], 3: ["☁️", "Mendung"],
+  45: ["🌫️", "Berkabut"], 48: ["🌫️", "Kabut es"],
+  51: ["🌦️", "Hujan gerimis"], 53: ["🌦️", "Hujan gerimis"], 55: ["🌧️", "Gerimis lebat"],
+  61: ["🌦️", "Hujan ringan"], 63: ["🌧️", "Hujan"], 65: ["🌧️", "Hujan lebat"],
+  71: ["🌨️", "Hujan salju"], 73: ["🌨️", "Salju"], 75: ["❄️", "Salju lebat"],
+  80: ["🌦️", "Hujan rintik"], 81: ["🌧️", "Hujan"], 82: ["⛈️", "Hujan deras"],
+  95: ["⛈️", "Petir"], 96: ["⛈️", "Petir + es"], 99: ["⛈️", "Badai"],
+};
+
+async function loadWeather() {
+  const el = $("#weatherChip");
+  if (!el) return;
+  try {
+    const r = await fetch(
+      "https://api.open-meteo.com/v1/forecast?latitude=-6.9349&longitude=110.4193&current=temperature_2m,weather_code&timezone=Asia%2FJakarta"
+    );
+    if (!r.ok) throw new Error("weather unavailable");
+    const d = await r.json();
+    const c = d.current;
+    const [ico, label] = WMO[c.weather_code] || ["🌡️", "-"];
+    el.innerHTML = `${ico} Jepara · ${Math.round(c.temperature_2m)}°C · ${label}`;
+  } catch {
+    el.remove();
+  }
+}
+
+function bindBeranda() {
+  loadWeather();
+}
+
+function initBlurIn() {
+  $$("img[data-blur]").forEach((img) => {
+    if (img.complete && img.naturalWidth) img.classList.add("loaded");
+    else {
+      img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
+      img.addEventListener("error", () => img.classList.add("loaded"), { once: true });
+    }
+  });
+}
+
+const BULAN_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+function nextBirthday() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  let best = null;
+  for (const s of state.students) {
+    if (!s.birthday) continue;
+    const [mm, dd] = s.birthday.split("-").map(Number);
+    let d = new Date(now.getFullYear(), mm - 1, dd);
+    if (d < now) d = new Date(now.getFullYear() + 1, mm - 1, dd);
+    const days = Math.round((d - now) / 86400000);
+    if (!best || days < best.days) best = { nama: s.nama, absen: s.absen, days, label: `${dd} ${BULAN_ID[mm - 1]}` };
+  }
+  return best;
+}
+
+/* ============================================================
+   Halaman: KUIS HARIAN
+   ============================================================ */
+function renderKuis() {
+  if (!state.kuis) state.kuis = newKuis();
+  const s = state.kuis;
+  const best = Number(localStorage.getItem("wiskar-kuis-best") || 0);
+
+  if (s.done) {
+    const total = KUIS.length;
+    const pct = s.score / total;
+    const emoji = pct === 1 ? "🏆" : pct >= 0.7 ? "🎉" : pct >= 0.5 ? "💪" : "📖";
+    const msg = pct === 1 ? "SEMPURNA! Kamu jagoan teknik!" : pct >= 0.7 ? "Hebat! Terus pertahankan!" : pct >= 0.5 ? "Bagus, tinggal asah sedikit lagi!" : "Jangan menyerah, belajar lagi ya!";
+    return `
+    <section class="section">
+      <div class="container kuis-wrap">
+        <div class="card kuis-result" data-reveal>
+          <span class="kr-emoji">${emoji}</span>
+          <div class="kr-score">${s.score}/${total}</div>
+          <div class="kr-msg">${msg}</div>
+          <div class="kr-sub">Skor terbaikmu: <b>${best}/${total}</b> · Materi: Fisika &amp; Elektronika dasar</div>
+          <div class="kr-actions">
+            <button class="btn btn-primary" id="kuisRestart" type="button">🔄 Main Lagi</button>
+            <a class="btn btn-wa" id="kuisShare" href="#" target="_blank" rel="noopener">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 1.67c2.2 0 4.26.86 5.82 2.42a8.18 8.18 0 0 1 2.42 5.82c0 4.54-3.7 8.24-8.24 8.24a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm-4.3 4.36c-.18 0-.47.07-.72.34-.24.27-.94.92-.94 2.24 0 1.32.96 2.59 1.1 2.77.13.18 1.87 2.99 4.62 4.06 2.27.88 2.74.71 3.24.67.5-.05 1.6-.65 1.83-1.28.22-.63.22-1.17.15-1.28-.06-.11-.24-.18-.5-.31-.27-.13-1.6-.79-1.85-.88-.24-.09-.42-.13-.6.13-.18.27-.69.88-.84 1.06-.15.18-.31.2-.57.07-.27-.14-1.14-.42-2.17-1.34-.8-.72-1.34-1.61-1.5-1.87-.15-.27-.01-.41.11-.54.11-.11.27-.31.4-.46.13-.16.18-.27.27-.44.09-.18.04-.34-.02-.47-.07-.13-.6-1.47-.83-2.01-.2-.48-.41-.42-.57-.43-.15-.01-.33-.01-.5-.01z"/></svg>
+              Bagikan Skor
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  const q = KUIS[s.i];
+  const letters = ["A", "B", "C", "D"];
+  const answered = s.picked !== null;
+  return `
+  <section class="section">
+    <div class="container kuis-wrap">
+      ${sectionHead("Tantangan", "🧠 Kuis Harian Kelas", "8 soal Fisika &amp; Elektronika. Jujur saja, ya! Skor terbaikmu tersimpan di perangkat ini.", true)}
+      <div class="card kuis-card" data-reveal>
+        <div class="kuis-progress">
+          <span class="kp-txt">SOAL ${s.i + 1}/${KUIS.length}</span>
+          <div class="kp-bar"><div class="kp-fill" style="width:${((s.i + (answered ? 1 : 0)) / KUIS.length) * 100}%"></div></div>
+          <span class="kp-txt">SKOR ${s.score}</span>
+        </div>
+        <span class="badge badge-umum kuis-mapel">${esc(q.mapel)}</span>
+        <h3 class="kuis-q">${esc(q.q)}</h3>
+        <div class="kuis-opts">
+          ${q.options
+            .map(
+              (opt, i) => {
+                let cls = "kuis-opt";
+                if (answered) {
+                  if (i === q.a) cls += " correct";
+                  else if (i === s.picked) cls += " wrong";
+                  else cls += " dim";
+                }
+                return `<button class="${cls}" type="button" data-opt="${i}" ${answered ? "disabled" : ""}>
+                  <span class="ko-letter">${letters[i]}</span><span>${esc(opt)}</span>
+                </button>`;
+              }
+            )
+            .join("")}
+        </div>
+        <div class="kuis-feedback ${answered ? "show" : ""} ${answered ? (s.picked === q.a ? "kf-ok" : "kf-bad") : ""}" id="kuisFb">
+          ${answered ? (s.picked === q.a ? `✅ Benar! Kamu paham ${esc(q.mapel)}.` : `❌ Kurang tepat. Jawabannya: <b>${esc(q.options[q.a])}</b>`) : ""}
+        </div>
+        <button class="btn btn-primary kuis-next ${answered ? "show" : ""}" id="kuisNext" type="button">
+          ${s.i === KUIS.length - 1 ? "Lihat Hasil →" : "Soal Berikutnya →"}
+        </button>
+      </div>
+    </div>
+  </section>`;
+}
+
+function bindKuis() {
+  const s = state.kuis;
+  if (!s) return;
+  if (s.done) {
+    const restart = $("#kuisRestart");
+    if (restart) restart.addEventListener("click", () => { state.kuis = newKuis(); route(); });
+    const share = $("#kuisShare");
+    if (share) {
+      const best = Number(localStorage.getItem("wiskar-kuis-best") || 0);
+      share.href =
+        "https://wa.me/?text=" +
+        encodeURIComponent(`🧠 Aku baru main Kuis Harian WiskarKu dan dapat skor ${s.score}/${KUIS.length}! Ayo saingan, buka ${location.href.split("#")[0]}#/kuis`);
+      void best;
+    }
+    return;
+  }
+  $$(".kuis-opt").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      if (state.kuis.picked !== null) return;
+      state.kuis.picked = Number(btn.dataset.opt);
+      if (state.kuis.picked === KUIS[state.kuis.i].a) state.kuis.score++;
+      route();
+    })
+  );
+  const next = $("#kuisNext");
+  if (next)
+    next.addEventListener("click", () => {
+      const st = state.kuis;
+      if (st.picked === null) return;
+      if (st.i === KUIS.length - 1) {
+        st.done = true;
+        const best = Number(localStorage.getItem("wiskar-kuis-best") || 0);
+        if (st.score > best) localStorage.setItem("wiskar-kuis-best", String(st.score));
+        toast(`Selesai! Skor kamu ${st.score}/${KUIS.length} 🎯`);
+      } else {
+        st.i++;
+        st.picked = null;
+      }
+      route();
+    });
+}
+
+/* ============================================================
+   Halaman: JADWAL PIKET
+   ============================================================ */
+function renderPiket() {
+  const today = new Date().getDay();
+  const todayIdx = today >= 1 && today <= 5 ? today - 1 : -1;
+  return `
+  <section class="section">
+    <div class="container">
+      ${sectionHead("Tanggung Jawab", "Jadwal Piket Kelas", `Bersih bersama, kelas nyaman bersama. Jam piket: <b>${esc(PIKET_JAM)}</b>.`)}
+      <div class="card piket-table-wrap" data-reveal>
+        <table class="piket-table">
+          <thead><tr><th>Hari</th><th>Kelompok</th><th>Tugas</th></tr></thead>
+          <tbody>
+            ${PIKET.map(
+              (p, i) => `
+            <tr class="${i === todayIdx ? "row-today" : ""}">
+              <td class="p-hari">${esc(p.hari)}${i === todayIdx ? '<span class="today-badge">Hari Ini</span>' : ""}</td>
+              <td class="p-grup">${esc(p.grup)}</td>
+              <td>${esc(p.tugas)}</td>
+            </tr>`
+            )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="card" style="padding:1.2rem 1.4rem; margin-top:1.1rem;" data-reveal>
+        <p style="font-size:.9rem; color:var(--muted)">⚠️ Kelompok piket wajib lengkap. Ada yang berhalangan? Ganti dengan teman se-kelompok dan laporkan ke ketua kelas. Kelas berantakan = nilai kebersihan turun!</p>
+      </div>
+    </div>
+  </section>`;
+}
+
+/* ============================================================
+   Halaman: ANGGOTA KELAS
+   ============================================================ */
+function renderAnggota() {
+  const locked = !state.user;
+  const q = state.anggotaQ.trim().toLowerCase();
+  const list = locked ? state.students : state.students.filter((s) => s.nama.toLowerCase().includes(q) || s.absen.includes(q));
+  const monthB = nextBirthday();
+  return `
+  <section class="section">
+    <div class="container">
+      ${sectionHead("Warga Kelas", `Anggota Kelas ${esc(KELAS_INFO.nama)}`, `${state.students.length} siswa · ${esc(KELAS_INFO.dataKelas[1][1])} laki-laki, ${esc(KELAS_INFO.dataKelas[2][1])} perempuan`)}
+      ${
+        locked
+          ? `<p data-reveal style="font-size:.85rem; color:var(--muted); margin-bottom:1.4rem;">ℹ️ Daftar anggota terbuka setelah kamu <a href="#/login" style="color:var(--primary-strong); font-weight:700;">masuk</a>.</p>`
+          : `<div class="anggota-search" data-reveal>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="flex:none;color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.6-4.6"/></svg>
+        <input id="anggotaSearch" type="text" placeholder="Cari nama atau nomor absen..." value="${esc(state.anggotaQ)}" />
+        <span style="font-size:.78rem; color:var(--muted); font-weight:700; white-space:nowrap">${list.length}/${state.students.length}</span>
+      </div>`
+      }
+      <div class="locked-wrap">
+        <div class="anggota-grid ${locked ? "locked-blur" : ""}">
+          ${list
+            .map(
+              (s, i) => `
+          <div class="card anggota-card" data-reveal style="transition-delay:${Math.min(i * 25, 250)}ms">
+            <span class="ang-avatar">${esc(s.nama.split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span>
+            <div class="ang-txt">
+              <b>${esc(s.nama)}</b>
+              <span>🎂 ${s.birthday ? esc(s.birthday.split("-")[1] + " " + BULAN_ID[Number(s.birthday.split("-")[0]) - 1]) : "—"}</span>
+            </div>
+            <span class="ang-absen">${esc(s.absen)}</span>
+          </div>`
+            )
+            .join("")}
+          ${!locked && list.length === 0 ? `<div class="empty-admin" style="grid-column:1/-1"><span class="ea-ico">🔍</span>Tidak ada siswa dengan kata kunci “${esc(state.anggotaQ)}”.</div>` : ""}
+        </div>
+        ${locked ? lockOverlay("Masuk untuk melihat daftar anggota") : ""}
+      </div>
+      ${monthB && !locked ? `<p data-reveal style="margin-top:1.4rem; font-size:.85rem; color:var(--muted)">🎂 Ultah terdekat: <b style="color:var(--text)">${esc(monthB.nama)}</b> (${esc(monthB.label)})${monthB.days === 0 ? " — hari ini!" : ` — ${monthB.days} hari lagi`}</p>` : ""}
+    </div>
+  </section>`;
+}
+
+function bindAnggota() {
+  const input = $("#anggotaSearch");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    state.anggotaQ = input.value;
+    const q = state.anggotaQ.trim().toLowerCase();
+    const filtered = state.students.filter((s) => s.nama.toLowerCase().includes(q) || s.absen.includes(q));
+    const grid = $(".anggota-grid");
+    if (!grid) return;
+    const monthB = nextBirthday();
+    grid.innerHTML = filtered
+      .map(
+        (s) => `
+      <div class="card anggota-card">
+        <span class="ang-avatar">${esc(s.nama.split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span>
+        <div class="ang-txt">
+          <b>${esc(s.nama)}</b>
+          <span>🎂 ${s.birthday ? esc(s.birthday.split("-")[1] + " " + BULAN_ID[Number(s.birthday.split("-")[0]) - 1]) : "—"}</span>
+        </div>
+        <span class="ang-absen">${esc(s.absen)}</span>
+      </div>`
+      )
+      .join("") +
+      (filtered.length === 0
+        ? `<div class="empty-admin" style="grid-column:1/-1"><span class="ea-ico">🔍</span>Tidak ada siswa dengan kata kunci “${esc(state.anggotaQ)}”.</div>`
+        : "");
+    void monthB;
+    const count = $(".anggota-search span");
+    if (count) count.textContent = `${filtered.length}/${state.students.length}`;
+    input.focus();
+  });
+}
+
+/* ============================================================
    Init
    ============================================================ */
 async function init() {
@@ -1511,7 +1903,8 @@ async function init() {
   initShare();
   initLive();
   renderUserBox();
-  await Promise.all([loadGallery(), loadAnnouncements(), loadAdmin()]);
+  await Promise.all([loadGallery(), loadAnnouncements(), loadAdmin(), loadStudents()]);
+  buildTicker();
   route();
   try {
     const data = await api("/api/me");

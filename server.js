@@ -187,6 +187,12 @@ function clip(s, max) {
 /* ---------- API ---------- */
 
 async function handleApi(req, res, url) {
+  // ===== Daftar siswa (publik) =====
+  if (url.pathname === '/api/students' && req.method === 'GET') {
+    const items = students.map((s) => ({ absen: String(s.absen), nama: s.nama, birthday: s.birthday || null }));
+    return sendJSON(res, 200, { ok: true, items });
+  }
+
   // ===== Pengumuman (publik) =====
   if (url.pathname === '/api/announcements' && req.method === 'GET') {
     return sendJSON(res, 200, { ok: true, items: announcements });

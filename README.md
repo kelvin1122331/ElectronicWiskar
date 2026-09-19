@@ -14,7 +14,13 @@ Website resmi **Kelas Wiskar** (Jurusan Teknik) — galeri kelas, menu mata pela
 | ⏱️ **Countdown Agenda** | Hitung mundur live (hari:jam:menit:detik) ke agenda terdekat + badge "Terdekat" di halaman agenda |
 | 📤 **Share WhatsApp** | Tombol WA mengambang + di footer — share halaman aktif ke grup kelas |
 | 🔗 **Tautan Penting** | Link cepat (sekolah, e-learning, grup WA, Dapodik, dll.) — edit di `public/js/data.js` |
-| 🎨 **UI Premium** | Glassmorphism, scroll progress bar, back-to-top, animasi reveal & counter, transisi halaman, blob animasi di hero, scrollbar kustom |
+| 📅 **Jadwal Piket** | Halaman jadwal piket (5 hari) + kartu "Piket Hari Ini" di beranda, auto-highlight hari aktif |
+| 🎂 **Ultah Warga Kelas** | Data ultah di `data/students.json`, widget "Ultah Bulan Ini" + hitung mundur ultah berikutnya di beranda |
+| 👥 **Daftar Anggota** | Halaman 30 siswa (terkunci sebelum login) dengan pencarian nama/absen real-time |
+| 🧠 **Kuis Harian** | 8 soal Fisika & Elektronika, feedback instan benar/salah, skor + best score tersimpan, share skor via WA |
+| 🌤️ **Cuaca Jepara Live** | Widget cuaca real-time via open-meteo (tanpa API key), graceful jika offline |
+| 📰 **Ticker Pengumuman** | Marquee berjalan di bawah navbar (jeda saat hover) — selalu update dari pengumuman aktif |
+| 🎨 **UI Premium** | Glassmorphism, aurora border animasi, wave divider, image blur-in + skeleton shimmer, scroll progress bar, back-to-top, counter animasi, transisi halaman, mobile menu beranimasi |
 | 📚 **Mata Pelajaran** | Tab **Kelas 10 / 11 / 12** — mapel, guru pengampu, badge Umum/Kompetensi, daftar materi pokok (terkunci sebelum login) |
 | 📸 **Galeri Kelas** | **Dinamis & kosong dari awal** — diisi lewat Panel Admin. Filter kategori (Kelas, Praktikum, Kegiatan, Acara) + lightbox dengan navigasi keyboard |
 | 🛡️ **Panel Admin** | Login admin → **upload** (klik/seret, maks 8 MB), **edit** judul/kategori/deskripsi, **hapus** foto (konfirmasi 2 langkah). Foto tersimpan di `public/images/uploads/` + `data/gallery.json` |
@@ -67,7 +73,7 @@ Port bisa diganti: `PORT=8080 node server.js`
 | Sandi website | `server.js` → `WEB_PASSWORD` (atau env `WEB_PASSWORD`) |
 | Akun admin | `server.js` → `ADMIN_USER` / `ADMIN_PASSWORD` (atau env) |
 | Daftar siswa | `data/students.json` |
-| Mata pelajaran, agenda, tautan penting, profil, kontak | `public/js/data.js` |
+| Mata pelajaran, agenda, tautan penting, piket, soal kuis, profil, kontak | `public/js/data.js` |
 | Pengumuman & foto galeri | lewat **Panel Admin** (tersimpan di `data/announcements.json` & `data/gallery.json`) |
 | Warna tema | `public/css/style.css` → bagian `:root` dan `html[data-theme="dark"]` |
 | Foto galeri | **upload lewat Panel Admin** (tersimpan otomatis di `public/images/uploads/` + `data/gallery.json`) |
@@ -79,7 +85,7 @@ Port bisa diganti: `PORT=8080 node server.js`
 ├── server.js            # Server Node (API login + file statis), tanpa dependensi
 ├── package.json
 ├── data/
-│   ├── students.json        # Daftar siswa (absen + nama)
+│   ├── students.json        # Daftar siswa (absen + nama + birthday)
 │   ├── gallery.json         # Foto galeri (diisi otomatis oleh Panel Admin)
 │   └── announcements.json   # Pengumuman (dikelola Panel Admin)
 └── public/
