@@ -120,14 +120,27 @@ const MATAPELAJARAN = {
    dan disimpan di data/gallery.json. Kategori tersedia: */
 const GALERI_KATEGORI = ["Kelas", "Praktikum", "Kegiatan", "Acara"];
 
-/* ---------- Agenda ---------- */
+/* ---------- Agenda ----------
+   date = ISO (YYYY-MM-DD) untuk hitung mundur otomatis.
+   tanggal/bulan/hari diisi manual agar rapi. */
 const AGENDA = [
-  { tanggal: "25", bulan: "Sep", hari: "Kamis", judul: "Ulangan Harian Fisika", tag: "uji", tagLabel: "Ujian", desc: "Materi: Hukum Ohm dan rangkaian sederhana. Bawa alat tulis lengkap." },
-  { tanggal: "02", bulan: "Okt", hari: "Rabu", judul: "Praktikum Rangkaian Seri-Paralel", tag: "prak", tagLabel: "Praktikum", desc: "Diaboratorium elektronika. Ikuti instruksi K3 dari Pak Hendra." },
-  { tanggal: "15", bulan: "Okt", hari: "Selasa", judul: "Festival & Class Meeting", tag: "keg", tagLabel: "Kegiatan", desc: "Pentas seni dan lomba antar-kelompok. Setiap kelompok wajib tampil!" },
-  { tanggal: "30", bulan: "Okt", hari: "Rabu", judul: "Ujian Tengah Semester", tag: "uji", tagLabel: "Ujian", desc: "UTS semua mata pelajaran umum dan kompetensi." },
-  { tanggal: "05", bulan: "Nov", hari: "Selasa", judul: "Kunjungan Industri", tag: "keg", tagLabel: "Kegiatan", desc: "Outing class ke fasilitas industri. Bawa seragam lengkap + helm disediakan." },
-  { tanggal: "18", bulan: "Nov", hari: "Senin", judul: "Ujian Praktik Kompetensi", tag: "penting", tagLabel: "Penting", desc: "Ujian praktik akhir: merangkai dan menguji rangkaian kendali." },
+  { date: "2026-09-25", tanggal: "25", bulan: "Sep", hari: "Kamis", judul: "Ulangan Harian Fisika", tag: "uji", tagLabel: "Ujian", desc: "Materi: Hukum Ohm dan rangkaian sederhana. Bawa alat tulis lengkap." },
+  { date: "2026-10-02", tanggal: "02", bulan: "Okt", hari: "Rabu", judul: "Praktikum Rangkaian Seri-Paralel", tag: "prak", tagLabel: "Praktikum", desc: "Di laboratorium elektronika. Ikuti instruksi K3 dari Pak Hendra." },
+  { date: "2026-10-15", tanggal: "15", bulan: "Okt", hari: "Selasa", judul: "Festival & Class Meeting", tag: "keg", tagLabel: "Kegiatan", desc: "Pentas seni dan lomba antar-kelompok. Setiap kelompok wajib tampil!" },
+  { date: "2026-10-30", tanggal: "30", bulan: "Okt", hari: "Rabu", judul: "Ujian Tengah Semester", tag: "uji", tagLabel: "Ujian", desc: "UTS semua mata pelajaran umum dan kompetensi." },
+  { date: "2026-11-05", tanggal: "05", bulan: "Nov", hari: "Selasa", judul: "Kunjungan Industri", tag: "keg", tagLabel: "Kegiatan", desc: "Outing class ke fasilitas industri. Bawa seragam lengkap + helm disediakan." },
+  { date: "2026-11-18", tanggal: "18", bulan: "Nov", hari: "Senin", judul: "Ujian Praktik Kompetensi", tag: "penting", tagLabel: "Penting", desc: "Ujian praktik akhir: merangkai dan menguji rangkaian kendali." },
+];
+
+/* ---------- Tautan Penting ----------
+   Ganti URL sesuai sekolahmu. Icon = emoji. */
+const TAUTAN = [
+  { icon: "🏫", label: "Website Sekolah", url: "https://smknegeri.sch.id" },
+  { icon: "💻", label: "E-Learning", url: "https://elearning.smknegeri.sch.id" },
+  { icon: "💬", label: "Grup WA Kelas", url: "https://chat.whatsapp.com/WiskarKu" },
+  { icon: "📧", label: "Email Kelas", url: "mailto:wiskarku.teknik@gmail.com" },
+  { icon: "📚", label: "Perpustakaan Digital", url: "https://perpusnas.go.id" },
+  { icon: "📊", label: "Dapodik", url: "https://dapo.dikdasmen.kemdikbud.go.id" },
 ];
 
 /* ---------- Kontak ---------- */

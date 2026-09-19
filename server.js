@@ -37,6 +37,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOAD_DIR = path.join(PUBLIC_DIR, 'images', 'uploads');
 const DATA_FILE = path.join(__dirname, 'data', 'students.json');
 const GALLERY_FILE = path.join(__dirname, 'data', 'gallery.json');
+const ANNOUNCEMENTS_FILE = path.join(__dirname, 'data', 'announcements.json');
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -61,6 +62,19 @@ try {
 }
 function saveGallery() {
   fs.writeFileSync(GALLERY_FILE, JSON.stringify(gallery, null, 2));
+}
+
+// Pengumuman: data/announcements.json -> [{ id, judul, isi, prioritas, createdAt }]
+let announcements = [];
+try {
+  announcements = JSON.parse(fs.readFileSync(ANNOUNCEMENTS_FILE, 'utf8'));
+  console.log(`✓ Pengumuman dimuat: ${announcements.length} item`);
+} catch {
+  announcements = [];
+  fs.writeFileSync(ANNOUNCEMENTS_FILE, '[]');
+}
+function saveAnnouncements() {
+  fs.writeFileSync(ANNOUNCEMENTS_FILE, JSON.stringify(announcements, null, 2));
 }
 
 // Sesi login (in-memory)
@@ -173,6 +187,41 @@ function clip(s, max) {
 /* ---------- API ---------- */
 
 async function handleApi(req, res, url) {
+  // ===== Pengumuman (publik) =====
+  if (url.pathname === '/api/announcements' && req.method === 'GET') {
+    return sendJSON(res, 200, { ok: true, items: announcements });
+  }
+
+  // ===== Admin: tambah pengumuman =====
+  if (url.pathname === '/api/announcements' && req.method === 'POST') {
+    if (!isAdmin(req)) return sendJSON(res, 403, { ok: false, error: 'Khusus admin. Silakan masuk dulu.' });
+    const body = await readBody(req, 512 * 1024);
+    const judul = clip(body.judul, 100);
+    if (!judul) return sendJSON(res, 400, { ok: false, error: 'Judul pengumuman tidak boleh kosong.' });
+    const item = {
+      id: Date.now().toString(36) + crypto.randomBytes(2).toString('hex'),
+      judul,
+      isi: clip(body.isi, 500),
+      prioritas: body.prioritas === 'penting' ? 'penting' : 'info',
+      createdAt: Date.now(),
+    };
+    announcements.unshift(item);
+    saveAnnouncements();
+    console.log(`+ Pengumuman: ${judul}`);
+    return sendJSON(res, 200, { ok: true, item });
+  }
+
+  // ===== Admin: hapus pengumuman =====
+  const annMatch = url.pathname.match(/^\/api\/announcements\/([\w-]+)$/);
+  if (annMatch && req.method === 'DELETE') {
+    if (!isAdmin(req)) return sendJSON(res, 403, { ok: false, error: 'Khusus admin. Silakan masuk dulu.' });
+    const before = announcements.length;
+    announcements = announcements.filter((a) => a.id !== annMatch[1]);
+    if (announcements.length === before) return sendJSON(res, 404, { ok: false, error: 'Pengumuman tidak ditemukan.' });
+    saveAnnouncements();
+    return sendJSON(res, 200, { ok: true });
+  }
+
   // ===== Galeri (publik) =====
   if (url.pathname === '/api/gallery' && req.method === 'GET') {
     return sendJSON(res, 200, { ok: true, items: gallery });

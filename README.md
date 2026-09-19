@@ -8,7 +8,13 @@ Website resmi **Kelas Wiskar** (Jurusan Teknik) — galeri kelas, menu mata pela
 
 | Fitur | Keterangan |
 |---|---|
-| 🏠 **Beranda** | Hero, statistik kelas, menu spesial, banner login, sneak peek galeri |
+| 🏠 **Beranda** | Hero + jam real-time, statistik beranimasi, countdown agenda, menu spesial, pengumuman, sneak peek galeri, tautan penting |
+| 🔍 **Command Palette (Ctrl+K)** | Cari seluruh isi website — mapel, guru, agenda, foto, pengumuman, semua halaman. Navigasi keyboard ↑↓ Enter |
+| 📢 **Pengumuman Kelas** | Dikelola admin (panel → tab Pengumuman), badge prioritas Penting/Info, waktu relatif, tampil di beranda |
+| ⏱️ **Countdown Agenda** | Hitung mundur live (hari:jam:menit:detik) ke agenda terdekat + badge "Terdekat" di halaman agenda |
+| 📤 **Share WhatsApp** | Tombol WA mengambang + di footer — share halaman aktif ke grup kelas |
+| 🔗 **Tautan Penting** | Link cepat (sekolah, e-learning, grup WA, Dapodik, dll.) — edit di `public/js/data.js` |
+| 🎨 **UI Premium** | Glassmorphism, scroll progress bar, back-to-top, animasi reveal & counter, transisi halaman, blob animasi di hero, scrollbar kustom |
 | 📚 **Mata Pelajaran** | Tab **Kelas 10 / 11 / 12** — mapel, guru pengampu, badge Umum/Kompetensi, daftar materi pokok (terkunci sebelum login) |
 | 📸 **Galeri Kelas** | **Dinamis & kosong dari awal** — diisi lewat Panel Admin. Filter kategori (Kelas, Praktikum, Kegiatan, Acara) + lightbox dengan navigasi keyboard |
 | 🛡️ **Panel Admin** | Login admin → **upload** (klik/seret, maks 8 MB), **edit** judul/kategori/deskripsi, **hapus** foto (konfirmasi 2 langkah). Foto tersimpan di `public/images/uploads/` + `data/gallery.json` |
@@ -61,7 +67,8 @@ Port bisa diganti: `PORT=8080 node server.js`
 | Sandi website | `server.js` → `WEB_PASSWORD` (atau env `WEB_PASSWORD`) |
 | Akun admin | `server.js` → `ADMIN_USER` / `ADMIN_PASSWORD` (atau env) |
 | Daftar siswa | `data/students.json` |
-| Mata pelajaran, galeri, agenda, profil, kontak | `public/js/data.js` |
+| Mata pelajaran, agenda, tautan penting, profil, kontak | `public/js/data.js` |
+| Pengumuman & foto galeri | lewat **Panel Admin** (tersimpan di `data/announcements.json` & `data/gallery.json`) |
 | Warna tema | `public/css/style.css` → bagian `:root` dan `html[data-theme="dark"]` |
 | Foto galeri | **upload lewat Panel Admin** (tersimpan otomatis di `public/images/uploads/` + `data/gallery.json`) |
 | Foto hero | `public/images/hero.jpg` (path di `public/index.html`) |
@@ -72,8 +79,9 @@ Port bisa diganti: `PORT=8080 node server.js`
 ├── server.js            # Server Node (API login + file statis), tanpa dependensi
 ├── package.json
 ├── data/
-│   ├── students.json    # Daftar siswa (absen + nama)
-│   └── gallery.json     # Foto galeri (diisi otomatis oleh Panel Admin)
+│   ├── students.json        # Daftar siswa (absen + nama)
+│   ├── gallery.json         # Foto galeri (diisi otomatis oleh Panel Admin)
+│   └── announcements.json   # Pengumuman (dikelola Panel Admin)
 └── public/
     ├── index.html       # Skeleton SPA
     ├── css/style.css    # Seluruh gaya + tema terang/gelap

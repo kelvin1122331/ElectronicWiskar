@@ -1,0 +1,16 @@
+[
+  {
+    "id": "seed1",
+    "judul": "Ulangan Harian Fisika — Kamis 25 September",
+    "isi": "Materi: Hukum Ohm & rangkaian sederhana. Bawa alat tulis lengkap dan datang 10 menit lebih awal ya!",
+    "prioritas": "penting",
+    "createdAt": 1758190800000
+  },
+  {
+    "id": "seed2",
+    "judul": "Galeri Kelas Segera Terisi",
+    "isi": "Dokumentasi kegiatan kelas akan diunggah bertahap melalui Panel Admin. Rajin mampir cek update terbaru!",
+    "prioritas": "info",
+    "createdAt": 1758018000000
+  }
+]

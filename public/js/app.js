@@ -1,7 +1,8 @@
 /* ============================================================
-   WiskarKu — app.js
-   SPA ringan: routing hash, tema, login siswa, login admin,
-   panel admin galeri (upload/edit/hapus), galeri dinamis.
+   WiskarKu — app.js v2
+   SPA: routing hash, tema, login siswa & admin, panel admin
+   (galeri + pengumuman), command palette (Ctrl+K), countdown
+   agenda, jam real-time, share WhatsApp, tautan penting.
    ============================================================ */
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -9,24 +10,34 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const state = {
-  user: null,      // siswa yang login
-  admin: null,     // admin yang login
-  gallery: [],     // isi galeri (dari /api/gallery)
+  user: null,      // siswa login
+  admin: null,     // admin login
+  adminTab: "galeri",
+  gallery: [],
+  announcements: [],
   grade: 10,
   galeriFilter: "Semua",
   lightboxList: [],
   lightboxIdx: 0,
-  pendingImage: null, // { base64, mime, name, size } untuk upload admin
+  pendingImage: null,
+};
+
+const PAGE_TITLES = {
+  beranda: "Beranda",
+  mapel: "Mata Pelajaran",
+  galeri: "Galeri Kelas",
+  profil: "Profil Kelas",
+  agenda: "Agenda Kelas",
+  kontak: "Kontak",
+  login: "Masuk",
+  admin: "Panel Admin",
 };
 
 /* ============================================================
    API
    ============================================================ */
 async function api(path, options = {}) {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Terjadi kesalahan.");
   return data;
@@ -36,18 +47,19 @@ async function loadGallery() {
   try {
     const d = await api("/api/gallery");
     state.gallery = (d.items || []).sort((a, b) => b.createdAt - a.createdAt);
-  } catch {
-    state.gallery = [];
-  }
+  } catch { state.gallery = []; }
 }
-
+async function loadAnnouncements() {
+  try {
+    const d = await api("/api/announcements");
+    state.announcements = (d.items || []).sort((a, b) => b.createdAt - a.createdAt);
+  } catch { state.announcements = []; }
+}
 async function loadAdmin() {
   try {
     const d = await api("/api/admin/me");
     state.admin = d.ok ? d.admin : null;
-  } catch {
-    state.admin = null;
-  }
+  } catch { state.admin = null; }
 }
 
 /* ============================================================
@@ -72,7 +84,98 @@ function toast(msg, type = "ok") {
   t.textContent = msg;
   t.className = `toast show ${type}`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.className = "toast"), 3200);
+  toastTimer = setTimeout(() => (t.className = "toast"), 3400);
+}
+
+/* ============================================================
+   Jam real-time & countdown
+   ============================================================ */
+function nextAgenda() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (const a of AGENDA) {
+    const d = new Date(a.date + "T00:00:00");
+    if (d >= today) return a;
+  }
+  return null;
+}
+
+function updateClock() {
+  const el = $("#clockText");
+  if (!el) return;
+  el.textContent = new Date().toLocaleString("id-ID", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  });
+}
+
+function setTile(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const v = String(val).padStart(2, "0");
+  if (el.textContent !== v) {
+    el.textContent = v;
+    const tile = el.closest(".cd-tile");
+    if (tile) { tile.classList.remove("tick"); void tile.offsetWidth; tile.classList.add("tick"); }
+  }
+}
+
+function updateCountdown() {
+  const card = $("#cdCard");
+  if (!card) return;
+  const next = nextAgenda();
+  if (!next) return;
+  let diff = new Date(next.date + "T12:00:00") - Date.now();
+  const over = diff <= 0;
+  diff = Math.max(0, diff);
+  setTile("cd-d", Math.floor(diff / 86400000));
+  setTile("cd-h", Math.floor(diff / 3600000) % 24);
+  setTile("cd-m", Math.floor(diff / 60000) % 60);
+  setTile("cd-s", Math.floor(diff / 1000) % 60);
+  const lbl = $("#cdStatus");
+  if (lbl) lbl.textContent = over ? "🔥 Sedang berlangsung hari ini!" : "";
+}
+
+function initLive() {
+  updateClock();
+  updateCountdown();
+  setInterval(updateClock, 1000);
+  setInterval(updateCountdown, 1000);
+}
+
+/* ============================================================
+   Scroll progress & back-to-top
+   ============================================================ */
+function initScrollFx() {
+  const bar = $("#scrollProgress");
+  const topFab = $("#topFab");
+  const onScroll = () => {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
+    topFab.classList.toggle("show", h.scrollTop > 480);
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  topFab.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+}
+
+/* ============================================================
+   Share WhatsApp
+   ============================================================ */
+function updateShare() {
+  const base = location.href.split("#")[0];
+  const title = PAGE_TITLES[currentRoute()] || "Beranda";
+  const text = encodeURIComponent(`⚡ WiskarKu — ${title}\n${base}`);
+  const url = "https://wa.me/?text=" + text;
+  const fab = $("#shareFab");
+  if (fab) fab.dataset.url = url;
+  const foot = $("#footerShare");
+  if (foot) foot.href = url;
+}
+function initShare() {
+  const fab = $("#shareFab");
+  if (fab) fab.addEventListener("click", () => window.open(fab.dataset.url || "https://wa.me/", "_blank", "noopener"));
 }
 
 /* ============================================================
@@ -109,9 +212,7 @@ function renderUserBox() {
       $(".user-btn", box).setAttribute("aria-expanded", String(menu.classList.contains("open")));
     });
     $("#logoutBtn", box).addEventListener("click", async () => {
-      try {
-        await api("/api/logout", { method: "POST" });
-      } catch { /* abaikan */ }
+      try { await api("/api/logout", { method: "POST" }); } catch { /* abaikan */ }
       state.user = null;
       renderUserBox();
       route();
@@ -147,29 +248,55 @@ function currentRoute() {
 function route() {
   const page = currentRoute();
   $$("#navLinks a").forEach((a) => a.classList.toggle("active", a.dataset.route === page));
-  $("#app").innerHTML = PAGES[page]();
+  const app = $("#app");
+  app.classList.remove("enter");
+  void app.offsetWidth;
+  app.innerHTML = PAGES[page]();
+  app.classList.add("enter");
   window.scrollTo({ top: 0 });
   if (page === "galeri") bindGaleri();
   if (page === "mapel") bindMapel();
   if (page === "login") bindLogin();
   if (page === "kontak") bindKontak();
   if (page === "admin") bindAdmin();
+  updateShare();
   initReveal();
 }
 
 window.addEventListener("hashchange", route);
 
 /* ============================================================
-   Animasi reveal
+   Animasi reveal + counter
    ============================================================ */
+function countUp(el) {
+  const target = Number(el.dataset.count) || 0;
+  const dur = 1100;
+  const t0 = performance.now();
+  const step = (t) => {
+    const p = Math.min(1, (t - t0) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = String(Math.round(target * eased));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function initReveal() {
   const els = $$("#app [data-reveal]");
+  const counts = $$("#app [data-count]");
   if (!("IntersectionObserver" in window)) {
     els.forEach((el) => el.classList.add("visible"));
+    counts.forEach((el) => (el.textContent = el.dataset.count));
     return;
   }
   const io = new IntersectionObserver(
-    (entries) => entries.forEach((e) => e.isIntersecting && (e.target.classList.add("visible"), io.unobserve(e.target))),
+    (entries) => entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add("visible");
+      $$("[data-count]", e.target).forEach((c) => !c.dataset.done && ((c.dataset.done = 1), countUp(c)));
+      if (e.target.matches("[data-count]")) { e.target.dataset.done = 1; countUp(e.target); }
+      io.unobserve(e.target);
+    }),
     { threshold: 0.08 }
   );
   els.forEach((el, i) => {
@@ -196,19 +323,62 @@ function lockOverlay(text = "Masuk untuk melihat") {
   </div></div>`;
 }
 
+function relTime(ts) {
+  const d = Date.now() - ts;
+  const m = Math.floor(d / 60000);
+  if (m < 1) return "baru saja";
+  if (m < 60) return `${m} menit lalu`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} jam lalu`;
+  const days = Math.floor(h / 24);
+  if (days === 1) return "kemarin";
+  if (days < 7) return `${days} hari lalu`;
+  return new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
 /* ============================================================
    Halaman: BERANDA
    ============================================================ */
 function renderBeranda() {
   const featured = state.gallery.slice(0, 3);
   const nMapel = Object.values(MATAPELAJARAN).reduce((n, l) => n + l.length, 0);
+  const next = nextAgenda();
+  const anns = state.announcements.slice(0, 4);
+
+  const countdown = next
+    ? `
+  <section class="section" style="padding-top:2.4rem; padding-bottom:0.6rem">
+    <div class="container">
+      <div class="cd-card" id="cdCard" data-reveal>
+        <div class="cd-info">
+          <div class="cd-label">⏱️ Agenda Terdekat</div>
+          <h3>${esc(next.judul)}</h3>
+          <div class="cd-date">${esc(next.hari)}, ${esc(next.tanggal)} ${esc(next.bulan)} ${next.date.slice(0, 4)} · ${esc(next.tagLabel)}</div>
+          <div class="cd-date" id="cdStatus"></div>
+        </div>
+        <div class="cd-tiles">
+          <div class="cd-tile"><b id="cd-d">--</b><span>Hari</span></div>
+          <div class="cd-tile"><b id="cd-h">--</b><span>Jam</span></div>
+          <div class="cd-tile"><b id="cd-m">--</b><span>Menit</span></div>
+          <div class="cd-tile"><b id="cd-s">--</b><span>Detik</span></div>
+        </div>
+      </div>
+    </div>
+  </section>`
+    : "";
+
   return `
   <section class="hero">
     <div class="hero-bg"><img src="images/hero.jpg" alt="Suasana kelas Wiskar" /></div>
+    <div class="hero-blob b1" aria-hidden="true"></div>
+    <div class="hero-blob b2" aria-hidden="true"></div>
     <div class="container hero-inner">
-      <span class="hero-pill">⚡ Kelas Wiskar · ${esc(KELAS_INFO.jurusan)}</span>
+      <div style="display:flex; gap:.6rem; flex-wrap:wrap">
+        <span class="hero-pill">⚡ Kelas Wiskar · ${esc(KELAS_INFO.jurusan)}</span>
+        <span class="hero-pill"><span class="live-dot"></span><span id="clockText">memuat…</span></span>
+      </div>
       <h1>Selamat datang di <span class="grad">Galeri Kelas Wiskar</span></h1>
-      <p>Website resmi warga kelas — tempat berjalannya dokumentasi kegiatan, informasi mata pelajaran kelas 10–12, agenda, dan segala hal seru seputar kelas kita.</p>
+      <p>Website resmi warga kelas — dokumentasi kegiatan, mata pelajaran kelas 10–12, pengumuman, agenda, dan segala hal seru seputar kelas kita.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="#/galeri">📸 Lihat Galeri</a>
         <a class="btn btn-ghost" href="#/mapel">📚 Mata Pelajaran</a>
@@ -218,12 +388,14 @@ function renderBeranda() {
 
   <div class="container">
     <div class="stats">
-      <div class="stat-card" data-reveal><b>${esc(KELAS_INFO.dataKelas[0][1].replace(" siswa", ""))}</b><span>Total Siswa</span></div>
-      <div class="stat-card" data-reveal><b>${nMapel}</b><span>Mata Pelajaran (10–12)</span></div>
-      <div class="stat-card" data-reveal><b>${state.gallery.length}</b><span>Foto Galeri</span></div>
-      <div class="stat-card" data-reveal><b>${AGENDA.length}</b><span>Agenda Terdekat</span></div>
+      <div class="stat-card" data-reveal><b data-count="${esc(KELAS_INFO.dataKelas[0][1].replace(" siswa", ""))}">0</b><span>Total Siswa</span></div>
+      <div class="stat-card" data-reveal><b data-count="${nMapel}">0</b><span>Mata Pelajaran (10–12)</span></div>
+      <div class="stat-card" data-reveal><b data-count="${state.gallery.length}">0</b><span>Foto Galeri</span></div>
+      <div class="stat-card" data-reveal><b data-count="${AGENDA.length}">0</b><span>Agenda Terdekat</span></div>
     </div>
   </div>
+
+  ${countdown}
 
   <section class="section">
     <div class="container">
@@ -263,7 +435,7 @@ function renderBeranda() {
         <span class="lb-emoji">🔐</span>
         <div style="flex:1; min-width: 240px;">
           <h3>Sedang mencari sesuatu di kelas kita?</h3>
-          <p>Masuk dengan nomor absen, nama, dan sandi website untuk membuka semua konten — pengurus kelas, detail materi, dan lainnya.</p>
+          <p>Masuk dengan nomor absen, nama, dan sandi website untuk membuka semua konten. Atau tekan <b>Ctrl+K</b> untuk cari apa saja.</p>
         </div>
         <a class="btn" href="#/login">Masuk Sekarang</a>
       </div>`
@@ -271,17 +443,42 @@ function renderBeranda() {
     </div>
   </section>
 
+  <section class="section section-alt">
+    <div class="container">
+      ${sectionHead("Info Penting", "Pengumuman Kelas", "Kabar terbaru dari wali kelas dan pengurus kelas.")}
+      ${
+        anns.length
+          ? `<div class="ann-list">
+        ${anns
+          .map(
+            (a, i) => `
+          <article class="ann-card p-${a.prioritas}" data-reveal style="transition-delay:${i * 70}ms">
+            <span class="ann-icon">${a.prioritas === "penting" ? "📌" : "📣"}</span>
+            <div class="ann-body">
+              <h3>${esc(a.judul)} <span class="prio-badge prio-${a.prioritas}">${a.prioritas === "penting" ? "Penting" : "Info"}</span></h3>
+              ${a.isi ? `<p>${esc(a.isi)}</p>` : ""}
+              <div class="ann-meta">🕓 ${relTime(a.createdAt)}</div>
+            </div>
+          </article>`
+          )
+          .join("")}
+      </div>`
+          : `<div class="empty-admin" data-reveal><span class="ea-ico">📭</span>Belum ada pengumuman. Nanti mampir lagi, ya!</div>`
+      }
+    </div>
+  </section>
+
   ${
     featured.length
       ? `
-  <section class="section section-alt">
+  <section class="section">
     <div class="container">
       ${sectionHead("Glimpse", "Sampai jumpa di Galeri Kelas", "Sneak peek dokumentasi terbaru kelas Wiskar.")}
       <div class="feature-strip">
         ${featured
           .map(
             (g, i) => `
-          <a href="#/galeri" data-reveal>
+          <a href="#/galeri" data-reveal style="transition-delay:${i * 70}ms">
             <img src="${esc(g.file)}" alt="${esc(g.judul)}" loading="lazy" />
             <span class="fs-cap">${esc(g.judul)}</span>
           </a>`
@@ -294,7 +491,23 @@ function renderBeranda() {
     </div>
   </section>`
       : ""
-  }`;
+  }
+
+  <section class="section" style="padding-top:0.5rem">
+    <div class="container">
+      ${sectionHead("Akses Cepat", "Tautan Penting", "Semua link penting kelas dalam satu tempat — tinggal klik.")}
+      <div class="tautan-row">
+        ${TAUTAN.map(
+          (t, i) => `
+          <a class="tautan" href="${esc(t.url)}" target="_blank" rel="noopener" data-reveal style="transition-delay:${i * 50}ms">
+            <span class="t-ico">${t.icon}</span>
+            <span>${esc(t.label)}</span>
+            <span class="t-arrow">↗</span>
+          </a>`
+        ).join("")}
+      </div>
+    </div>
+  </section>`;
 }
 
 /* ============================================================
@@ -519,6 +732,7 @@ function renderProfil() {
    Halaman: AGENDA
    ============================================================ */
 function renderAgenda() {
+  const next = nextAgenda();
   return `
   <section class="section">
     <div class="container">
@@ -526,10 +740,10 @@ function renderAgenda() {
       <div class="timeline">
         ${AGENDA.map(
           (a, i) => `
-          <div class="card agenda-item" data-reveal style="transition-delay:${i * 60}ms">
+          <div class="card agenda-item ${next && next.date === a.date ? "next" : ""}" data-reveal style="transition-delay:${i * 60}ms">
             <div class="agenda-date"><b>${esc(a.tanggal)}</b><span>${esc(a.bulan)}</span></div>
             <div class="agenda-body">
-              <h3>${esc(a.judul)} <span class="tag tag-${a.tag}">${esc(a.tagLabel)}</span></h3>
+              <h3>${esc(a.judul)} <span class="tag tag-${a.tag}">${esc(a.tagLabel)}</span>${next && next.date === a.date ? `<span class="tag tag-next">Terdekat</span>` : ""}</h3>
               <p>${esc(a.hari)} — ${esc(a.desc)}</p>
             </div>
           </div>`
@@ -599,7 +813,7 @@ function renderLogin() {
     <section class="section">
       <div class="container" style="max-width:560px">
         <div class="card login-card" style="text-align:center" data-reveal>
-          <div class="l-head"><span class="brand-badge"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1.5 8.5L18 10.5h-6.5L13 2z"/></svg></span>
+          <div class="l-head"><span class="brand-badge"><svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1.5 8.5L18 10.5h-6.5L13 2z"/></svg></span>
           <h2>Kamu sudah masuk 🎉</h2>
           <p>Halo, <b>${esc(state.user.nama)}</b> (Absen ${esc(state.user.absen)}). Selamat menjelajah konten kelas!</p></div>
           <div style="display:flex; gap:.7rem; justify-content:center; flex-wrap:wrap">
@@ -615,7 +829,7 @@ function renderLogin() {
     <div class="container" style="max-width:980px">
       <div class="login-wrap">
         <div class="login-side" data-reveal>
-          <span class="brand-badge" style="width:52px;height:52px;border-radius:16px"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1.5 8.5L18 10.5h-6.5L13 2z"/></svg></span>
+          <span class="brand-badge" style="width:54px;height:54px;border-radius:17px"><svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1.5 8.5L18 10.5h-6.5L13 2z"/></svg></span>
           <h2>Masuk ke Galeri Kelas Wiskar</h2>
           <p>Website ini milik warga kelas. Masuk dengan data dirimu untuk membuka semua konten.</p>
           <ul>
@@ -659,12 +873,11 @@ function renderLogin() {
 function bindLogin() {
   const form = $("#loginForm");
   if (!form) return;
-  const pwdToggle = $("#pwdToggle");
-  pwdToggle.addEventListener("click", () => {
+  $("#pwdToggle").addEventListener("click", () => {
     const inp = $("#sandi");
     const show = inp.type === "password";
     inp.type = show ? "text" : "password";
-    pwdToggle.textContent = show ? "SEMBUNYIKAN" : "LIHAT";
+    $("#pwdToggle").textContent = show ? "SEMBUNYIKAN" : "LIHAT";
   });
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -697,7 +910,7 @@ function bindLogin() {
 }
 
 /* ============================================================
-   Halaman: ADMIN (login + panel galeri)
+   Halaman: ADMIN (login + panel: galeri & pengumuman)
    ============================================================ */
 function renderAdmin() {
   if (!state.admin) return renderAdminLogin();
@@ -710,7 +923,7 @@ function renderAdminLogin() {
     <div class="container" style="max-width:480px">
       <div class="card login-card" data-reveal>
         <div class="l-head">
-          <div style="width:56px;height:56px;border-radius:18px;margin:0 auto .9rem;display:grid;place-items:center;font-size:1.6rem;background:var(--primary-soft)">🛡️</div>
+          <div style="width:58px;height:58px;border-radius:19px;margin:0 auto .95rem;display:grid;place-items:center;font-size:1.65rem;background:var(--grad-soft);border:1px solid color-mix(in srgb, var(--primary) 22%, transparent)">🛡️</div>
           <h2>Panel Admin</h2>
           <p>Khusus pengelola website. Masuk dengan akun admin.</p>
         </div>
@@ -766,14 +979,25 @@ function adminPhotoCard(g) {
 
 function renderAdminPanel() {
   const photos = state.gallery;
+  const anns = state.announcements;
+  const tab = state.adminTab;
   return `
   <section class="section">
     <div class="container">
-      ${sectionHead("Panel Admin", "Kelola Galeri Kelas", `Halo, <b>${esc(state.admin.username)}</b> 👋 — tambah, ubah, atau hapus foto yang tampil di Galeri Kelas.`)}
+      ${sectionHead("Panel Admin", "Kelola Kelas", `Halo, <b>${esc(state.admin.username)}</b> 👋 — kelola galeri &amp; pengumuman kelas.`)}
       <div class="admin-topbar" data-reveal>
         <a class="btn btn-ghost btn-sm" href="#/galeri">👁️ Lihat Galeri</a>
+        <a class="btn btn-ghost btn-sm" href="#/beranda">🏠 Lihat Beranda</a>
         <button class="btn btn-danger-ghost btn-sm" id="adminLogout" type="button">Keluar Admin</button>
       </div>
+      <div class="admin-tabs" data-reveal>
+        <button class="admin-tab ${tab === "galeri" ? "active" : ""}" type="button" data-admin-tab="galeri">🖼️ Galeri</button>
+        <button class="admin-tab ${tab === "pengumuman" ? "active" : ""}" type="button" data-admin-tab="pengumuman">📢 Pengumuman</button>
+      </div>
+
+      ${
+        tab === "galeri"
+          ? `
       <div class="admin-grid">
         <div class="card panel" data-reveal>
           <h3>📤 Tambah Foto</h3>
@@ -807,7 +1031,7 @@ function renderAdminPanel() {
             <label for="upDesc">Deskripsi <span style="color:var(--muted); font-weight:500">(opsional)</span></label>
             <input id="upDesc" type="text" placeholder="Sedikit cerita di balik foto" maxlength="200" />
           </div>
-          <button class="btn btn-primary" id="upSubmit" type="submit" style="width:100%">⬆️ Upload ke Galeri</button>
+          <button class="btn btn-primary" id="upSubmit" type="button" style="width:100%">⬆️ Upload ke Galeri</button>
         </div>
 
         <div data-reveal style="transition-delay:100ms">
@@ -820,7 +1044,58 @@ function renderAdminPanel() {
               : `<div class="empty-admin"><span class="ea-ico">🗂️</span>Belum ada foto di galeri.<br>Upload foto pertama lewat panel di samping!</div>`
           }
         </div>
-      </div>
+      </div>`
+          : `
+      <div class="admin-grid">
+        <div class="card panel ann-form" data-reveal>
+          <h3>📢 Tambah Pengumuman</h3>
+          <div class="field">
+            <label for="annJudul">Judul</label>
+            <input id="annJudul" type="text" placeholder="mis. Ulangan Harian Hari Senin" maxlength="100" />
+          </div>
+          <div class="field">
+            <label for="annIsi">Isi <span style="color:var(--muted); font-weight:500">(opsional)</span></label>
+            <textarea id="annIsi" rows="4" placeholder="Detail pengumuman..." maxlength="500"></textarea>
+          </div>
+          <div class="field">
+            <label for="annPrio">Prioritas</label>
+            <select id="annPrio">
+              <option value="info">ℹ️ Info</option>
+              <option value="penting">📌 Penting</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="annSubmit" type="button" style="width:100%">📣 Terbitkan Pengumuman</button>
+        </div>
+
+        <div data-reveal style="transition-delay:100ms">
+          <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.9rem">
+            <h3 style="font-size:1.1rem">📋 Pengumuman Aktif <span class="count-badge">${anns.length}</span></h3>
+          </div>
+          ${
+            anns.length
+              ? `<div class="ann-admin-list">
+            ${anns
+              .map(
+                (a) => `
+              <div class="ann-card p-${a.prioritas}" data-ann-id="${esc(a.id)}">
+                <span class="ann-icon">${a.prioritas === "penting" ? "📌" : "📣"}</span>
+                <div class="ann-body">
+                  <h3>${esc(a.judul)} <span class="prio-badge prio-${a.prioritas}">${a.prioritas === "penting" ? "Penting" : "Info"}</span></h3>
+                  ${a.isi ? `<p>${esc(a.isi)}</p>` : ""}
+                  <div class="ann-meta" style="align-items:center; justify-content:space-between">
+                    <span>🕓 ${relTime(a.createdAt)}</span>
+                    <button class="btn btn-danger-ghost btn-sm ann-del" type="button" data-label="🗑️ Hapus">🗑️ Hapus</button>
+                  </div>
+                </div>
+              </div>`
+              )
+              .join("")}
+          </div>`
+              : `<div class="empty-admin"><span class="ea-ico">📭</span>Belum ada pengumuman.<br>Tulis yang pertama lewat form di samping!</div>`
+          }
+        </div>
+      </div>`
+      }
     </div>
   </section>`;
 }
@@ -856,7 +1131,7 @@ function bindAdminLogin() {
     try {
       const data = await api("/api/admin/login", { method: "POST", body: JSON.stringify({ username, password }) });
       state.admin = data.admin;
-      toast(`Masuk sebagai admin ✓`);
+      toast("Masuk sebagai admin ✓");
       route();
     } catch (err) {
       alertEl.textContent = err.message;
@@ -868,20 +1143,31 @@ function bindAdminLogin() {
 }
 
 function bindAdminPanel() {
-  // ---- logout admin ----
+  // logout admin
   const logoutBtn = $("#adminLogout");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
-      try {
-        await api("/api/admin/logout", { method: "POST" });
-      } catch { /* abaikan */ }
+      try { await api("/api/admin/logout", { method: "POST" }); } catch { /* abaikan */ }
       state.admin = null;
       toast("Kamu keluar dari mode admin.");
       route();
     });
   }
 
-  // ---- pilih / seret file ----
+  // tab
+  $$(".admin-tab").forEach((t) =>
+    t.addEventListener("click", () => {
+      state.adminTab = t.dataset.adminTab;
+      route();
+    })
+  );
+
+  if (state.adminTab === "pengumuman") return bindAnnAdmin();
+  bindGalleryAdmin();
+}
+
+function bindGalleryAdmin() {
+  // pilih / seret file
   const dz = $("#dropzone");
   const fileInput = $("#fileInput");
   if (!dz || !fileInput) return;
@@ -903,24 +1189,12 @@ function bindAdminPanel() {
 
   const handleFile = (file) => {
     if (!file) return;
-    if (!UPLOAD_MIME[file.type]) {
-      toast("Format tidak didukung. Gunakan JPG, PNG, WEBP, atau GIF.", "err");
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      toast("Foto terlalu besar. Maksimal 8 MB.", "err");
-      return;
-    }
+    if (!UPLOAD_MIME[file.type]) return toast("Format tidak didukung. Gunakan JPG, PNG, WEBP, atau GIF.", "err");
+    if (file.size > 8 * 1024 * 1024) return toast("Foto terlalu besar. Maksimal 8 MB.", "err");
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result);
-      showPreview({
-        dataUrl,
-        base64: dataUrl.split(",")[1],
-        mime: file.type,
-        name: file.name,
-        size: file.size,
-      });
+      showPreview({ dataUrl, base64: dataUrl.split(",")[1], mime: file.type, name: file.name, size: file.size });
     };
     reader.readAsDataURL(file);
   };
@@ -937,7 +1211,7 @@ function bindAdminPanel() {
   const dzClear = $("#dzClear");
   if (dzClear) dzClear.addEventListener("click", (e) => { e.stopPropagation(); clearPreview(); });
 
-  // ---- upload ----
+  // upload
   const upSubmit = $("#upSubmit");
   if (upSubmit) {
     upSubmit.addEventListener("click", async () => {
@@ -963,13 +1237,12 @@ function bindAdminPanel() {
     });
   }
 
-  // ---- edit & hapus per kartu ----
+  // edit & hapus per kartu
   $$(".admin-photo").forEach((card) => {
     const id = card.dataset.id;
     const item = state.gallery.find((g) => g.id === id);
     if (!item) return;
 
-    // edit
     const editBtn = $(".ap-edit", card);
     const form = $(".ap-edit-form", card);
     editBtn.addEventListener("click", () => {
@@ -1004,7 +1277,6 @@ function bindAdminPanel() {
       }
     });
 
-    // hapus (konfirmasi 2 langkah)
     const delBtn = $(".ap-del", card);
     let armed = null;
     delBtn.addEventListener("click", async () => {
@@ -1035,6 +1307,64 @@ function bindAdminPanel() {
   });
 }
 
+function bindAnnAdmin() {
+  // terbitkan pengumuman
+  const submit = $("#annSubmit");
+  if (submit) {
+    submit.addEventListener("click", async () => {
+      const judul = $("#annJudul").value.trim();
+      const isi = $("#annIsi").value.trim();
+      const prioritas = $("#annPrio").value;
+      if (!judul) return toast("Judul pengumuman tidak boleh kosong.", "err");
+      submit.disabled = true;
+      submit.textContent = "Menerbitkan...";
+      try {
+        const data = await api("/api/announcements", { method: "POST", body: JSON.stringify({ judul, isi, prioritas }) });
+        toast(`Pengumuman "${data.item.judul}" terbit! 📣`);
+        await loadAnnouncements();
+        route();
+      } catch (err) {
+        toast(err.message, "err");
+        submit.disabled = false;
+        submit.textContent = "📣 Terbitkan Pengumuman";
+      }
+    });
+  }
+
+  // hapus pengumuman (2 langkah)
+  $$(".ann-del").forEach((delBtn) => {
+    const card = delBtn.closest("[data-ann-id]");
+    const id = card.dataset.annId;
+    const item = state.announcements.find((a) => a.id === id);
+    let armed = null;
+    delBtn.addEventListener("click", async () => {
+      if (!delBtn.classList.contains("armed")) {
+        delBtn.classList.add("armed");
+        delBtn.textContent = "⚠️ Yakin? Klik lagi";
+        armed = setTimeout(() => {
+          delBtn.classList.remove("armed");
+          delBtn.textContent = delBtn.dataset.label;
+        }, 3000);
+        return;
+      }
+      clearTimeout(armed);
+      delBtn.disabled = true;
+      delBtn.textContent = "Menghapus...";
+      try {
+        await api(`/api/announcements/${id}`, { method: "DELETE" });
+        toast(`Pengumuman "${item?.judul || ""}" dihapus.`);
+        await loadAnnouncements();
+        route();
+      } catch (err) {
+        toast(err.message, "err");
+        delBtn.disabled = false;
+        delBtn.classList.remove("armed");
+        delBtn.textContent = delBtn.dataset.label;
+      }
+    });
+  });
+}
+
 const UPLOAD_MIME = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -1043,14 +1373,145 @@ const UPLOAD_MIME = {
 };
 
 /* ============================================================
+   Command Palette (Ctrl+K)
+   ============================================================ */
+let paletteItems = [];
+let paletteActive = 0;
+
+function buildPaletteIndex() {
+  const idx = [];
+  [
+    ["🏠", "Beranda", "Home website kelas", "#/beranda", "Halaman"],
+    ["📚", "Mata Pelajaran", "Mapel kelas 10–12", "#/mapel", "Halaman"],
+    ["📸", "Galeri Kelas", "Dokumentasi kegiatan", "#/galeri", "Halaman"],
+    ["🏫", "Profil Kelas", "Visi misi & pengurus", "#/profil", "Halaman"],
+    ["🗓️", "Agenda Kelas", "Jadwal & countdown", "#/agenda", "Halaman"],
+    ["📮", "Kontak", "Wali kelas & form pesan", "#/kontak", "Halaman"],
+    ["🔐", "Masuk / Login", "Login siswa", "#/login", "Halaman"],
+    ["🛡️", "Panel Admin", "Kelola galeri & pengumuman", "#/admin", "Halaman"],
+  ].forEach(([ico, t, s, href, type]) => idx.push({ ico, t, s, href, type }));
+
+  for (const [grade, list] of Object.entries(MATAPELAJARAN)) {
+    list.forEach((m) =>
+      idx.push({ ico: m.icon, t: `${m.nama} — Kelas ${grade}`, s: `${m.guru} · ${m.jenis === "kompetensi" ? "Kompetensi" : "Umum"}`, href: "#/mapel", type: "Mapel", grade })
+    );
+  }
+  AGENDA.forEach((a) =>
+    idx.push({ ico: "🗓️", t: a.judul, s: `${a.hari}, ${a.tanggal} ${a.bulan} · ${a.tagLabel}`, href: "#/agenda", type: "Agenda" })
+  );
+  state.gallery.forEach((g) =>
+    idx.push({ ico: "📸", t: g.judul, s: `Galeri · ${g.kategori}`, href: "#/galeri", type: "Galeri" })
+  );
+  state.announcements.forEach((a) =>
+    idx.push({ ico: a.prioritas === "penting" ? "📌" : "📣", t: a.judul, s: `Pengumuman · ${relTime(a.createdAt)}`, href: "#/beranda", type: "Pengumuman" })
+  );
+  return idx;
+}
+
+function renderPalette(query) {
+  const box = $("#paletteResults");
+  const q = query.trim().toLowerCase();
+  let items;
+  if (!q) {
+    items = buildPaletteIndex().filter((i) => i.type === "Halaman").slice(0, 8);
+  } else {
+    items = buildPaletteIndex()
+      .filter((i) => (i.t + " " + i.s + " " + i.type).toLowerCase().includes(q))
+      .slice(0, 18);
+  }
+  paletteItems = items;
+  paletteActive = 0;
+  if (!items.length) {
+    box.innerHTML = `<div class="palette-empty">😕 Tidak ada hasil untuk “${esc(query)}”<br><span style="font-size:.78rem">Coba kata kunci lain, mis. “fisika”, “ulangan”, “galeri”</span></div>`;
+    return;
+  }
+  let lastType = null;
+  box.innerHTML = items
+    .map((it, i) => {
+      const group = it.type !== lastType ? `<div class="pl-group">${esc(it.type)}</div>` : "";
+      lastType = it.type;
+      return `${group}
+      <button class="pl-item ${i === 0 ? "active" : ""}" type="button" data-pi="${i}">
+        <span class="pl-ico">${it.ico}</span>
+        <span class="pl-txt"><b>${esc(it.t)}</b><span>${esc(it.s)}</span></span>
+        <span class="pl-type">${esc(it.type)}</span>
+      </button>`;
+    })
+    .join("");
+  $$(".pl-item", box).forEach((el) =>
+    el.addEventListener("click", () => pickPalette(Number(el.dataset.pi)))
+  );
+}
+
+function pickPalette(i) {
+  const it = paletteItems[i];
+  if (!it) return;
+  closePalette();
+  if (it.grade) state.grade = Number(it.grade);
+  if (location.hash === it.href) route();
+  else location.hash = it.href;
+}
+
+function openPalette() {
+  const p = $("#palette");
+  p.classList.add("open");
+  p.setAttribute("aria-hidden", "false");
+  const inp = $("#paletteInput");
+  inp.value = "";
+  renderPalette("");
+  setTimeout(() => inp.focus(), 60);
+}
+
+function closePalette() {
+  const p = $("#palette");
+  p.classList.remove("open");
+  p.setAttribute("aria-hidden", "true");
+}
+
+function initPalette() {
+  const p = $("#palette");
+  const inp = $("#paletteInput");
+  $("#paletteOpen").addEventListener("click", openPalette);
+  $$("[data-palette-close]").forEach((el) => el.addEventListener("click", closePalette));
+  inp.addEventListener("input", () => renderPalette(inp.value));
+
+  document.addEventListener("keydown", (e) => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "");
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      p.classList.contains("open") ? closePalette() : openPalette();
+      return;
+    }
+    if (!p.classList.contains("open")) return;
+    if (e.key === "Escape") closePalette();
+    else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!paletteItems.length) return;
+      const n = paletteItems.length;
+      paletteActive = (paletteActive + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+      $$(".pl-item").forEach((el, i) => el.classList.toggle("active", i === paletteActive));
+      const act = $(".pl-item.active");
+      if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter" && !typing) {
+      e.preventDefault();
+      pickPalette(paletteActive);
+    }
+  });
+}
+
+/* ============================================================
    Init
    ============================================================ */
 async function init() {
   initTheme();
   initNav();
   initLightbox();
+  initPalette();
+  initScrollFx();
+  initShare();
+  initLive();
   renderUserBox();
-  await Promise.all([loadGallery(), loadAdmin()]);
+  await Promise.all([loadGallery(), loadAnnouncements(), loadAdmin()]);
   route();
   try {
     const data = await api("/api/me");
